@@ -802,7 +802,6 @@ function applyConfig(d){
     sel.addEventListener('change', () => { setCurrentAccount(sel.value, true); initPayRefresh(); });
   }
   setCurrentAccount(CURRENT_ACCOUNT, false);
-  initPurposeUI();
   set('p-name', pr.name); set('p-sub', pr.subtitle); set('p-badge', pr.badge); set('p-foot', pr.footer);
   if (pr.logo_alt) $('p-logo').alt = pr.logo_alt;
   if (pg.title) document.title = pg.title;
