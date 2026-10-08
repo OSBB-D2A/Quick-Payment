@@ -721,6 +721,7 @@ function setCurrentAccount(id, resetPurpose = true){
 }
 function applyConfig(d){
   const $ = id => document.getElementById(id), pr = d.profile || {}, pg = d.page || {};
+  const set = (id, v) => { const el = $(id); if (!el) return; if ('value' in el) el.value = v || ''; else el.textContent = v || ''; };
   const sel = $('account-select');
   if (sel){
     sel.innerHTML = '';
