@@ -1326,11 +1326,21 @@ function initPay(banks){
     if (sum) amountEl.value = sanitizeAmount(sum);
     if (pur && normPurpose(pur)) {
       pur=normPurpose(pur);
-      const t=PURPOSES.find(x => purposeKind(x)==='or' ? pur.startsWith(x.replace('___','')) : purposeKind(x)==='apartment' ? pur.startsWith(x.replace('ХХХ','')) : x===pur);
+      const t=PURPOSES.find(x => {
+        const k=purposeKind(x);
+        if(k==='or' || k==='apartment'){
+          const token=k==='or' ? '___' : 'ХХХ';
+          const parts=x.split(token);
+          return pur.startsWith(parts[0]) && pur.endsWith(parts[1]);
+        }
+        return x===pur;
+      });
       if(t){
         const k=purposeKind(t);
-        const m=k==='or' ? pur.match(/О\/р\s+(.+)$/i) : k==='apartment' ? pur.match(/кв\.\s+(.+)$/i) : null;
-        setPurposeTemplate(t,m?m[1]:'',null,false);
+        const token=k==='or' ? '___' : 'ХХХ';
+        const parts=t.split(token);
+        const m=(k==='or'||k==='apartment') ? pur.slice(parts[0].length, pur.length-parts[1].length).trim() : '';
+        setPurposeTemplate(t,m,null,false);
       } else {
         const custom=PURPOSES.find(x=>purposeKind(x)==='custom') || PURPOSES[0];
         setPurposeTemplate(custom,'',pur,false);
