@@ -286,10 +286,20 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
       <div class="p-grid">
         <div class="field"><label for="amount">Сума <span class="opt">(необов'язково)</span></label>
           <div class="input"><input id="amount" class="has-suffix" type="text" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="Будь-яка сума"><span class="suffix">₴</span></div></div>
-        <div class="field"><label for="purpose">Призначення платежу</label>
-          <div class="input"><input id="purpose" type="text" autocomplete="off" maxlength="140" placeholder="" value="" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="purpose-list">
-            <button class="copy-button" data-copy-id="purpose" aria-label="Копіювати призначення"></button>
-            <ul class="suggest" id="purpose-list" role="listbox" aria-label="Шаблони призначення" hidden></ul></div></div>
+        <div class="field"><label for="purpose-type">Призначення платежу</label>
+          <div class="input"><select id="purpose-type" class="plain-select" aria-label="Тип призначення"></select></div></div>
+        <div class="field" id="apartment-field" hidden>
+          <label for="apartment-select">Квартира / О/р</label>
+          <div class="input"><select id="apartment-select" class="plain-select" aria-label="Квартира або особовий рахунок"></select></div>
+          <p class="hint" id="apartment-hint">Оберіть номер зі списку.</p>
+        </div>
+        <div class="field" id="custom-purpose-field" hidden>
+          <label for="custom-purpose">Власне призначення</label>
+          <div class="input"><input id="custom-purpose" type="text" autocomplete="off" maxlength="140" placeholder="Введіть призначення платежу"></div>
+        </div>
+        <div class="field"><label for="purpose">Сформоване призначення</label>
+          <div class="input"><input id="purpose" type="text" autocomplete="off" maxlength="140" readonly>
+            <button class="copy-button" data-copy-id="purpose" aria-label="Копіювати призначення"></button></div></div>
       </div>
       <p class="warn" id="pay-warn" role="status" aria-live="polite" hidden></p>
       <div class="p-actions">
@@ -489,6 +499,8 @@ let PAYEE = { name: '', iban: '', taxId: '', id: '' }; // поточний ра�
 let ACCOUNTS = [];
 let CURRENT_ACCOUNT = '';
 let DEFAULT_PURPOSE = 'Оплата за послуги';         // перезаписується з config.php
+let PURPOSES = [];
+let APARTMENTS = [];
 const MAX_PURPOSE = 140;          // ліміт стандарту (символів)
 const MAX_QR_MODULES = 77;        // версія 15 — максимум для формату 002
 const CP1251_HI = '\u0402\u0403\u201A\u0453\u201E\u2026\u2020\u2021\u20AC\u2030\u0409\u2039\u040A\u040C\u040B\u040F\u0452\u2018\u2019\u201C\u201D\u2022\u2013\u2014\uFFFD\u2122\u0459\u203A\u045A\u045C\u045B\u045F\u00A0\u040E\u045E\u0408\u00A4\u0490\u00A6\u00A7\u0401\u00A9\u0404\u00AB\u00AC\u00AD\u00AE\u0407\u00B0\u00B1\u0406\u0456\u0491\u00B5\u00B6\u00B7\u0451\u2116\u0454\u00BB\u0458\u0405\u0455\u0457\u0410\u0411\u0412\u0413\u0414\u0415\u0416\u0417\u0418\u0419\u041A\u041B\u041C\u041D\u041E\u041F\u0420\u0421\u0422\u0423\u0424\u0425\u0426\u0427\u0428\u0429\u042A\u042B\u042C\u042D\u042E\u042F\u0430\u0431\u0432\u0433\u0434\u0435\u0436\u0437\u0438\u0439\u043A\u043B\u043C\u043D\u043E\u043F\u0440\u0441\u0442\u0443\u0444\u0445\u0446\u0447\u0448\u0449\u044A\u044B\u044C\u044D\u044E\u044F';           // символи 0x80…0xFF таблиці windows-1251
@@ -700,9 +712,65 @@ async function loadConfig(){
   CURRENT_ACCOUNT = String((d.default_account || ACCOUNTS[0].id));
   if (!ACCOUNTS.some(a => a.id === CURRENT_ACCOUNT)) CURRENT_ACCOUNT = ACCOUNTS[0].id;
   setCurrentAccount(CURRENT_ACCOUNT, false);
+  PURPOSES = Array.isArray(d.purposes) ? d.purposes.map(normPurpose).filter(Boolean) : [];
+  if (!PURPOSES.length) PURPOSES = [DEFAULT_PURPOSE];
   if (d.default_purpose) DEFAULT_PURPOSE = normPurpose(d.default_purpose) || DEFAULT_PURPOSE;
   Object.assign(PAY, buildPay('', DEFAULT_PURPOSE));
   return d;
+}
+function purposeKind(s){
+  const v = String(s || '');
+  if (/О\/р\s*___/i.test(v)) return 'or';
+  if (/кв\.\s*ХХХ/i.test(v)) return 'apartment';
+  if (/^Інший платіж/i.test(v)) return 'custom';
+  return 'none';
+}
+function composePurpose(template, apartment, custom){
+  const kind = purposeKind(template);
+  if (kind === 'or') return normPurpose(template.replace(/О\/р\s*___/i, 'О/р ' + apartment));
+  if (kind === 'apartment') return normPurpose(template.replace(/кв\.\s*ХХХ/i, 'кв. ' + apartment));
+  if (kind === 'custom') return normPurpose(custom || template);
+  return normPurpose(template);
+}
+function setPurposeTemplate(template, apartment, custom, emit=true){
+  const type=document.getElementById('purpose-type'), apt=document.getElementById('apartment-select');
+  const af=document.getElementById('apartment-field'), cf=document.getElementById('custom-purpose-field');
+  const cp=document.getElementById('custom-purpose'), purpose=document.getElementById('purpose');
+  if(!type || !purpose) return;
+  const t=normPurpose(template || DEFAULT_PURPOSE), kind=purposeKind(t);
+  type.value=t;
+  af.hidden=!(kind==='or'||kind==='apartment');
+  cf.hidden=kind!=='custom';
+  if((kind==='or'||kind==='apartment') && apartment && [...apt.options].some(o=>o.value===apartment)) apt.value=apartment;
+  if(kind==='custom' && custom!=null) cp.value=custom;
+  purpose.value=composePurpose(t,apt ? apt.value : '',cp ? cp.value : '');
+  if(emit) purpose.dispatchEvent(new Event('input',{bubbles:true}));
+}
+function initPurposeUI(){
+  const type=document.getElementById('purpose-type'), apt=document.getElementById('apartment-select');
+  const cp=document.getElementById('custom-purpose'), purpose=document.getElementById('purpose');
+  if(!type || !purpose) return;
+  type.innerHTML='';
+  PURPOSES.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;type.appendChild(o);});
+  apt.innerHTML='';
+  APARTMENTS.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;apt.appendChild(o);});
+  const update=()=>{purpose.value=composePurpose(type.value,apt.value,cp.value);purpose.dispatchEvent(new Event('input',{bubbles:true}));};
+  type.addEventListener('change',()=>{
+    const k=purposeKind(type.value);
+    document.getElementById('apartment-field').hidden=!(k==='or'||k==='apartment');
+    document.getElementById('custom-purpose-field').hidden=k!=='custom';
+    update();
+  });
+  apt.addEventListener('change',update); cp.addEventListener('input',update);
+  setPurposeTemplate(DEFAULT_PURPOSE);
+}
+async function loadApartments(){
+  try{
+    const res=await fetch(siteUrl('apartments.json'),{cache:'no-cache'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    APARTMENTS=Array.isArray(data)?data.map(v=>String(v)).filter(Boolean):[];
+  }catch(e){APARTMENTS=[];}
 }
 function setCurrentAccount(id, resetPurpose = true){
   const a = ACCOUNTS.find(x => x.id === id) || ACCOUNTS[0];
@@ -716,7 +784,7 @@ function setCurrentAccount(id, resetPurpose = true){
   const set = (id, v) => { const el = document.getElementById(id); if (!el) return; if ('value' in el) el.value = v || ''; else el.textContent = v || ''; };
   set('account-id', a.name); set('iban', PAYEE.iban); set('tax-id', a.tax_id); set('bank', a.bank); set('mfo', a.mfo);
   set('bank-code', a.bank_edrpou); set('phone', a.phone); set('email', a.email);
-  if (resetPurpose) document.getElementById('purpose').value = DEFAULT_PURPOSE;
+  if (resetPurpose) setPurposeTemplate(DEFAULT_PURPOSE);
   applyContactVisibility();
 }
 function applyConfig(d){
@@ -734,6 +802,7 @@ function applyConfig(d){
     sel.addEventListener('change', () => { setCurrentAccount(sel.value, true); initPayRefresh(); });
   }
   setCurrentAccount(CURRENT_ACCOUNT, false);
+  initPurposeUI();
   set('p-name', pr.name); set('p-sub', pr.subtitle); set('p-badge', pr.badge); set('p-foot', pr.footer);
   if (pr.logo_alt) $('p-logo').alt = pr.logo_alt;
   if (pg.title) document.title = pg.title;
@@ -1241,9 +1310,9 @@ function initPay(banks){
     });
     listEl.addEventListener('mousedown', e => e.preventDefault());       // клік по підказці не забирає фокус із поля
   }
-  makeSuggest(purposeEl, $('purpose-list'), allTemplates);
+  // Призначення обирається через підготовлений список та, за потреби, квартиру/О/р.
   makeSuggest($('inv-payer'), $('payer-list'), () => (INV && INV.payers) || []);
-  $('resetPay').addEventListener('click', () => { amountEl.value = ''; purposeEl.value = DEFAULT_PURPOSE; apply(); });
+  $('resetPay').addEventListener('click', () => { amountEl.value = ''; setPurposeTemplate(DEFAULT_PURPOSE); apply(); });
 
   // Параметри з посилання:  ?k7f3q (скорочення з links.json)  або  ?sum=1500&p=…  (повна форма, працює завжди)
   const qs = new URLSearchParams(location.search);
@@ -1256,7 +1325,18 @@ function initPay(banks){
     let pur = qs.get('purpose') ?? qs.get('desc');
     if (qs.get('p')) { try { pur = decodeCp1251(fromBase64Url(qs.get('p'))); } catch(e){} }
     if (sum) amountEl.value = sanitizeAmount(sum);
-    if (pur && normPurpose(pur)) purposeEl.value = normPurpose(pur);
+    if (pur && normPurpose(pur)) {
+      pur=normPurpose(pur);
+      const t=PURPOSES.find(x => purposeKind(x)==='or' ? pur.startsWith(x.replace('___','')) : purposeKind(x)==='apartment' ? pur.startsWith(x.replace('ХХХ','')) : x===pur);
+      if(t){
+        const k=purposeKind(t);
+        const m=k==='or' ? pur.match(/О\/р\s+(.+)$/i) : k==='apartment' ? pur.match(/кв\.\s+(.+)$/i) : null;
+        setPurposeTemplate(t,m?m[1]:'',null,false);
+      } else {
+        const custom=PURPOSES.find(x=>purposeKind(x)==='custom') || PURPOSES[0];
+        setPurposeTemplate(custom,'',pur,false);
+      }
+    }
   }
   apply();                            // одразу показуємо QR (стандартний або з параметрів)
   loadLinks().then(async () => {
@@ -1305,8 +1385,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Реквізити з config.php → сторінка → QR, банки, адмін-панель
-  loadConfig().then(d => {
+  loadConfig().then(async d => {
     applyConfig(d);
+    await loadApartments();
+    initPurposeUI();
     const banks = new BankLinks(platform); banks.generate();
     initPay(banks);
     document.body.classList.remove('cfg-loading'); fit();
