@@ -774,9 +774,8 @@ function setCurrentAccount(id, resetPurpose = true){
   if (hint) hint.textContent = a.label ? String(a.label) : ('IBAN ' + PAYEE.iban);
   const set = (id, v) => { const el = document.getElementById(id); if (!el) return; if ('value' in el) el.value = v || ''; else el.textContent = v || ''; };
   set('account-id', a.name); set('iban', PAYEE.iban); set('tax-id', a.tax_id); set('bank', a.bank); set('mfo', a.mfo);
-  set('bank-code', a.bank_edrpou); set('phone', a.phone); set('email', a.email);
+  set('bank-code', a.bank_edrpou);
   if (resetPurpose) setPurposeTemplate(DEFAULT_PURPOSE);
-  applyContactVisibility();
 }
 function applyConfig(d){
   const $ = id => document.getElementById(id), pr = d.profile || {}, pg = d.page || {};
@@ -799,38 +798,10 @@ function applyConfig(d){
   const md = document.querySelector('meta[name=description]'); if (md && pg.description) md.content = pg.description;
 }
 function initPayRefresh(){ window.dispatchEvent(new CustomEvent('osbb-account-change')); }
-// ---- «Тел.» і «E-mail»: показ у звичайному режимі керується чекбоксами в адмін-панелі ----
-function applyContactVisibility(){
-  if (!CFG.data) return;
-  const $ = id => document.getElementById(id), p = ACCOUNTS.find(a => a.id === CURRENT_ACCOUNT) || ACCOUNTS[0] || {};
-  const showPhone = p.show_phone !== false, showEmail = p.show_email !== false;   // немає ключа в config.php → вважаємо «показувати»
-  const phoneField = $('phone').closest('.field'), emailField = $('email').closest('.field');
-  if (phoneField) phoneField.hidden = !showPhone && !ADMIN.on;
-  if (emailField) emailField.hidden = !showEmail && !ADMIN.on;
-  const cp = $('show-phone'), ce = $('show-email');
-  if (cp){ cp.checked = showPhone; $('phone-vis-wrap').hidden = !ADMIN.on; }
-  if (ce){ ce.checked = showEmail; $('email-vis-wrap').hidden = !ADMIN.on; }
-}
-async function toggleContactVisibility(key, checkboxEl){
-  if (!getKey()){ checkboxEl.checked = !checkboxEl.checked; toast('Спершу введіть пароль', 4000); return; }
-  const value = checkboxEl.checked;
-  let r; try { r = await api('visibility', { [key]: value }, { auth: true }); } catch(e){ checkboxEl.checked = !value; return toast('Немає зв’язку зі save.php', 5000); }
-  if (!r.ok){
-    checkboxEl.checked = !value;
-    if (r.status === 403){ forgetKey(); renderAdmin(); }
-    return toast(r.data.error || 'Не вдалося зберегти', 5000);
-  }
-  const cp = ACCOUNTS.find(a => a.id === CURRENT_ACCOUNT); if (cp) cp[key] = value;
-  applyContactVisibility();
-  toast(value ? 'Поле видно у звичайному режимі' : 'Поле приховано у звичайному режимі', 2500);
-}
 function buildVcard(){
   const p = ACCOUNTS.find(a => a.id === CURRENT_ACCOUNT) || {}, val = id => document.getElementById(id).value;
-  const [last = '', first = '', ...rest] = String(p.name).replace(/^ФОП\s+/i, '').split(/\s+/).filter(Boolean);
-  const tel = p.show_phone !== false ? String(p.phone || '').replace(/[^\d+]/g, '') : '';
-  const mail = p.show_email !== false ? (p.email || '') : '';
-  return ['BEGIN:VCARD', 'VERSION:3.0', `N:${last};${first};${rest.join(' ')};;`, `FN:${p.name}`,
-    tel ? `TEL;TYPE=CELL:${tel}` : '', mail ? `EMAIL:${mail}` : '',
+  const [last = '', first = '', ...rest] = String(p.name || '').replace(/^ФОП\s+/i, '').split(/\s+/).filter(Boolean);
+  return ['BEGIN:VCARD', 'VERSION:3.0', `N:${last};${first};${rest.join(' ')};;`, `FN:${p.name || ''}`,
     'NOTE:РНОКПП ' + val('tax-id') + '\\nIBAN ' + val('iban') + '\\nБанк ' + val('bank') + '\\nМФО ' + val('mfo') + '\\nЄДРПОУ банку ' + val('bank-code'),
     'END:VCARD'].filter(Boolean).join('\r\n');
 }
@@ -1002,7 +973,6 @@ function initCopy(){
 // ---------- Дані для експорту ----------
 const val = id => document.getElementById(id).value;
 function fullText(){
-  const p = ACCOUNTS.find(a => a.id === CURRENT_ACCOUNT) || {};
   return ['РЕКВІЗИТИ','',
     'Отримувач: '+val('account-id'),
     'IBAN: '+val('iban'),
@@ -1012,8 +982,6 @@ function fullText(){
     'Банк: '+val('bank'),
     'МФО: '+val('mfo'),
     'Код банку ЄДРПОУ: '+val('bank-code'),
-    ...(p.show_phone !== false ? ['Тел.: '+val('phone')] : []),
-    ...(p.show_email !== false ? ['E-mail: '+val('email')] : []),
     '','Посилання для оплати: '+payUrl()].join('\n');
 }
 function download(name, mime, content){
@@ -1032,17 +1000,28 @@ function initPay(banks){
   let awaiting = false;               // чекаємо links.json, щоб не затирати ?код в адресному рядку
 
   function drawQr(q){
-    const n = q.getModuleCount(); let d = '';
-    for (let y = 0; y < n; y++){
-      let x = 0;
-      while (x < n){
-        if (q.isDark(y, x)){ const s = x; while (x < n && q.isDark(y, x)) x++; d += `M${s} ${y}h${x - s}v1h-${x - s}z`; }
-        else x++;
+    if (!q || typeof q.getModuleCount !== 'function' || typeof q.isDark !== 'function' || !svg || !qrPath || !svg.parentElement) return false;
+    let n, d = '';
+    try {
+      n = q.getModuleCount();
+      if (!Number.isInteger(n) || n < 1 || n > 177) return false;
+      for (let y = 0; y < n; y++){
+        let x = 0;
+        while (x < n){
+          if (q.isDark(y, x)){
+            const start = x;
+            while (x < n && q.isDark(y, x)) x++;
+            d += `M${start} ${y}h${x - start}v1h-${x - start}z`;
+          } else x++;
+        }
       }
-    }
-    svg.setAttribute('viewBox', `-2 -2 ${n + 4} ${n + 4}`); qrPath.setAttribute('d', d);
-    const frame = svg.parentElement;   // щільніший код — трохи більша рамка, щоб модулі лишались читабельними
-    frame.style.width = Math.min(430, Math.max(290, Math.round((n + 4) * 4.6 + 32))) + 'px'; frame.style.maxWidth = '100%';
+    } catch (e) { return false; }
+    svg.setAttribute('viewBox', `-2 -2 ${n + 4} ${n + 4}`);
+    qrPath.setAttribute('d', d);
+    const frame = svg.parentElement;
+    frame.style.width = Math.min(430, Math.max(290, Math.round((n + 4) * 4.6 + 32))) + 'px';
+    frame.style.maxWidth = '100%';
+    return true;
   }
   function apply(){
     const san = sanitizeAmount(amountEl.value);
@@ -1050,12 +1029,15 @@ function initPay(banks){
     const r = buildPay(san, purposeEl.value);
     const warns = [];
     if (r.dropped.length) warns.push('Символи ' + r.dropped.map(c => '«' + c + '»').join(' ') + ' не підтримуються стандартом QR і будуть пропущені.');
-    const q = makeQr('https://' + r.path);
-    if (!q){ warns.push('Призначення занадто довге для QR-коду — скоротіть текст.'); }
+    let q = null;
+    try { q = makeQr('https://' + r.path); } catch (e) { q = null; }
+    if (!q) warns.push('Не вдалося сформувати QR-код. Скоротіть призначення платежу або спробуйте ще раз.');
     warnEl.textContent = warns.join(' '); warnEl.hidden = !warns.length;
-    if (!q) return;                       // лишаємо попередній робочий QR
+    if (!q || !drawQr(q)) {
+      if (q) { warnEl.textContent = [warnEl.textContent, 'Генератор QR-коду повернув некоректні дані.'].filter(Boolean).join(' '); warnEl.hidden = false; }
+      return;                       // лишаємо попередній робочий QR
+    }
     PAY.amt = r.amt; PAY.purpose = r.purpose; PAY.path = r.path; PAY.dropped = r.dropped;
-    drawQr(q);
     $('qr-link').href = payUrl();
     banks.refresh();
     $('amount-field').hidden = !r.amt; $('pay-amount').value = r.amt ? r.amt.plain : '';
@@ -1082,7 +1064,6 @@ function initPay(banks){
     try { history.replaceState(null, '', url); } catch(e){}
   }
   function renderAdmin(){
-    applyContactVisibility();
     const box = $('admin-box'); box.hidden = !ADMIN.on; if (!ADMIN.on) return;
     const pub = Object.keys(STORE.links).length, pen = Object.keys(STORE.pending).length, st = curState(), k = keyOf(st);
     const pwSet = !!(CFG.data && CFG.data.password_set), hasKey = !!getKey();
@@ -1242,9 +1223,6 @@ function initPay(banks){
     toast(r.ok ? `Лист надіслано на ${r.data.to}. Посилання діє ${r.data.ttl_minutes} хв.` : (r.data.error || 'Не вдалося надіслати лист'), r.ok ? 9000 : 6000);
   });
   $('adminOff').addEventListener('click', () => { ADMIN.on = false; try { localStorage.removeItem(LS_ADMIN); } catch(e){} renderAdmin(); });
-  $('show-phone').addEventListener('change', () => toggleContactVisibility('show_phone', $('show-phone')));
-  $('show-email').addEventListener('change', () => toggleContactVisibility('show_email', $('show-email')));
-
   window.addEventListener('osbb-account-change', () => {
     const ev = new Event('input', {bubbles:true});
     amountEl.dispatchEvent(ev);
