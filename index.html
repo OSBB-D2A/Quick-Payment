@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Швидка оплата — ОСББ «Донця 2А-Ініціатива»</title>
 <meta name="description" content="Швидка оплата на рахунки ОСББ «Донця 2А-Ініціатива»">
-<meta name="theme-color" content="#151d2e">
+<meta name="theme-color" content="#0a0e1a">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
@@ -22,10 +22,10 @@
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
 :root[data-theme="dark"]{
-  --bg:#151d2e; --card:rgba(34,44,68,.82); --solid:#202b42; --border:rgba(220,230,255,.13);
-  --text:#f0f4ff; --muted:#a7b4ce; --accent:#a5b4fc; --accent-soft:rgba(165,180,252,.18);
-  --field:rgba(255,255,255,.065); --shadow:0 24px 60px -24px rgba(0,0,0,.48);
-  --blob1:#5554bb; --blob2:#167c91; --blob3:#984b9e;
+  --bg:#0a0e1a; --card:rgba(20,26,45,.72); --solid:#141a2d; --border:rgba(255,255,255,.09);
+  --text:#e8ecf7; --muted:#8b96b3; --accent:#818cf8; --accent-soft:rgba(129,140,248,.15);
+  --field:rgba(255,255,255,.045); --shadow:0 24px 60px -24px rgba(0,0,0,.65);
+  --blob1:#4338ca; --blob2:#0e7490; --blob3:#86198f;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 [hidden]{display:none!important}
@@ -325,18 +325,6 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
             <button type="button" class="btn accent narrow" id="installUpdateBtn" hidden>Оновити</button>
           </div>
         </div>
-        <div class="field"><label for="inv-payer">Платник <span class="opt">(необов'язково)</span></label>
-          <div class="input"><input id="inv-payer" type="text" autocomplete="off" maxlength="140" placeholder="Наприклад: ФОП Іванов І.І." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="payer-list">
-            <ul class="suggest" id="payer-list" role="listbox" aria-label="Платники" hidden></ul></div></div>
-        <div class="field"><label for="inv-note">Примітка <span class="opt">(для внутрішнього використання, у рахунок не потрапляє)</span></label>
-          <div class="input"><input id="inv-note" type="text" autocomplete="off" maxlength="300" placeholder="Наприклад: клієнт, номер договору…"></div></div>
-        <div class="p-actions">
-          <button type="button" class="btn accent" id="invBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="M9 15l3 3 3-3"/></svg>Створити рахунок (PDF)</button>
-          <select class="btn narrow" id="invRecentSelect" aria-label="Останні рахунки за 30 днів">
-            <option value="" selected>Останні рахунки (30 днів)</option>
-          </select>
-        </div>
         <div class="p-actions">
           <select class="btn" id="linksRecentSelect" aria-label="Останні посилання">
             <option value="" selected>Останні посилання (30)</option>
@@ -417,8 +405,7 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Копіювати все</button>
       <button class="btn" id="dlTxt">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Завантажити .txt</button>
-      <button class="btn" id="dlVcf">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>В контакти</button>
+
       <button class="btn" id="print">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Друк / PDF</button>
     </div>
@@ -707,21 +694,6 @@ async function api(action, body, { auth = false, method = 'POST', timeout = 1000
     return { ok: res.ok, status: res.status, data };
   } finally { clearTimeout(tm); }
 }
-let INV = null;                                            // стан реєстру рахунків {count, next} — лише коли є ключ
-async function apiBlob(action, body){                       // відповідь-файл (PDF/CSV); помилки приходять як JSON
-  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 25000);
-  try {
-    const res = await fetch(siteUrl(SAVE_URL) + '?action=' + action, { method: 'POST', cache: 'no-store', signal: ctl.signal,
-      headers: { 'Content-Type': 'application/json', 'X-Key': getKey() }, body: JSON.stringify(body || {}) });
-    if (!res.ok || (res.headers.get('content-type') || '').includes('json')) return { ok: false, status: res.status, data: await res.json().catch(() => ({})) };
-    const m = (res.headers.get('content-disposition') || '').match(/filename="([^"]+)"/);
-    return { ok: true, status: res.status, blob: await res.blob(), filename: m ? m[1] : '', number: res.headers.get('x-invoice-number') || '' };
-  } finally { clearTimeout(tm); }
-}
-function saveBlob(blob, name){
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-}
 async function saveRemote(st, code){                      // POST save.php?action=save → {ok, status, data}
   const r = await api('save', { account: st.account, sum: st.sum, purpose: st.purpose, code }, { auth: true });
   return { ok: r.ok && !!r.data.code, status: r.status, data: r.data };
@@ -866,13 +838,6 @@ function applyConfig(d){
   const md = document.querySelector('meta[name=description]'); if (md && pg.description) md.content = pg.description;
 }
 function initPayRefresh(){ window.dispatchEvent(new CustomEvent('osbb-account-change')); }
-function buildVcard(){
-  const p = ACCOUNTS.find(a => a.id === CURRENT_ACCOUNT) || {}, val = id => document.getElementById(id).value;
-  const [last = '', first = '', ...rest] = String(p.name || '').replace(/^ФОП\s+/i, '').split(/\s+/).filter(Boolean);
-  return ['BEGIN:VCARD', 'VERSION:3.0', `N:${last};${first};${rest.join(' ')};;`, `FN:${p.name || ''}`,
-    'NOTE:РНОКПП ' + val('tax-id') + '\\nIBAN ' + val('iban') + '\\nБанк ' + val('bank') + '\\nМФО ' + val('mfo') + '\\nЄДРПОУ банку ' + val('bank-code'),
-    'END:VCARD'].filter(Boolean).join('\r\n');
-}
 // ---- діалог пароля: onSubmit(пароль) повертає null (успіх) або текст помилки ----
 function passwordDialog({ title, text, confirm = false, submitText = 'Продовжити', onSubmit }){
   return new Promise(resolve => {
@@ -1190,7 +1155,7 @@ function initPay(banks){
   }
   async function runUpdate(){
     if(!getKey() || UPDATE.busy) return;
-    if(!confirm(`Оновити сторінку до v${UPDATE.latest}?\\n\\nНалаштування config.php, короткі посилання links.json та реєстр рахунків не змінюватимуться.`)) return;
+    if(!confirm(`Оновити сторінку до v${UPDATE.latest}?\\n\\nНалаштування config.php і короткі посилання links.json не змінюватимуться.`)) return;
     UPDATE.busy=true; renderUpdateStatus();
     const btn=$('checkUpdateBtn'); if(btn) btn.disabled=true;
     try{
@@ -1217,7 +1182,6 @@ function initPay(banks){
     if (!STORE.loaded) info = 'links.json не прочитано (відкрийте сторінку через сайт, а не як файл) — скорочення не створюються.';
     else {
       info = `У links.json: ${pub} · нових, ще не опублікованих: ${pen}. Автозбереження: ${hasKey ? 'увімкнено ✓' : (pwSet ? 'вимкнено — введіть пароль.' : 'вимкнено — пароль ще не задано.')}`;
-      if (hasKey && INV) info += ` Рахунків: ${INV.count} · наступний № ${INV.next}.`;
       if (!isDefaultState(st)){
         if (STORE.pub.has(k)) info += ` Поточний платіж: ?${STORE.pub.get(k)} — опубліковано ✓`;
         else if (STORE.pen.has(k)) info += ` Поточний платіж: ?${STORE.pen.get(k)} — ще не в links.json ⏳`;
@@ -1230,21 +1194,6 @@ function initPay(banks){
     renderLinksSelect();
     renderUpdateStatus();
     if(hasKey && !UPDATE.checked && !UPDATE.busy) checkForUpdate(true);
-  }
-  const fmtGrn = amt => { const n = Number(amt); return (isNaN(n) ? amt : n.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) + ' грн'; };
-  function renderInvoiceSelect(){                          // спадний перелік рахунків за останні 30 днів + «Реєстр (CSV)» останнім пунктом
-    const sel = $('invRecentSelect'), items = (INV && INV.recent) || [];
-    sel.innerHTML = '';
-    const ph = document.createElement('option'); ph.value = ''; ph.selected = true;
-    ph.textContent = items.length ? `Останні рахунки (${INV.recentDays} днів)` : 'Останніх рахунків немає';
-    sel.appendChild(ph);
-    for (const inv of items){
-      const o = document.createElement('option'); o.value = String(inv.number);
-      o.textContent = `№${inv.number} · ${inv.purpose} — ${fmtGrn(inv.amount)}`;
-      sel.appendChild(o);
-    }
-    const dl = document.createElement('option'); dl.value = '__csv__'; dl.textContent = 'Завантажити реєстр (CSV)';
-    sel.appendChild(dl);
   }
   function renderLinksSelect(){                            // спадний перелік останніх 30 посилань + «Завантажити links.json» останнім пунктом
     const sel = $('linksRecentSelect');
@@ -1302,53 +1251,9 @@ function initPay(banks){
     if (!confirm(`Видалити ${n} нових скорочень, які ще не опубліковано в links.json?`)) return;
     STORE.pending = {}; savePending(); indexLinks(); renderAdmin();
   });
-  async function refreshInvoices(){                       // скільки рахунків уже є, наступний номер і перелік за останні 30 днів
-    if (!getKey()){ INV = null; renderInvoiceSelect(); return renderAdmin(); }
-    try {
-      const r = await api('invoices', {}, { auth: true });
-      if (r.ok) INV = { count: r.data.count, next: r.data.next, recentDays: r.data.recentDays, recent: r.data.recent, payers: r.data.payers };
-      else { INV = null; if (r.status === 403) forgetKey(); }
-    } catch(e){ INV = null; }
-    renderInvoiceSelect(); renderAdmin();
-  }
-  $('invBtn').addEventListener('click', async () => {
-    const b = buildPay(sanitizeAmount(amountEl.value), purposeEl.value);
-    if (!b.amt){ toast('Введіть суму — без неї рахунок не створюється'); amountEl.focus(); return; }
-    if (!getKey()) return toast('Спершу введіть пароль (кнопка «ввести пароль» вгорі панелі)', 4500);
-    const btn = $('invBtn'); btn.disabled = true;
-    try {
-      const r = await apiBlob('invoice', { sum: b.amt.payload, purpose: b.purpose, note: $('inv-note').value, payer: $('inv-payer').value });
-      if (!r.ok){
-        if (r.status === 403){ forgetKey(); INV = null; renderAdmin(); }
-        return toast(r.data.error || 'Не вдалося створити рахунок', 6000);
-      }
-      saveBlob(r.blob, r.filename || `Rakhunok-${r.number}.pdf`);
-      toast(`Рахунок № ${r.number} створено й додано до реєстру`, 5000);
-      refreshInvoices();
-    } catch(e){ toast('Немає зв’язку зі save.php', 5000); }
-    finally { btn.disabled = false; }
-  });
-  async function downloadInvoicesCsv(){
-    if (!getKey()) return toast('Спершу введіть пароль', 4000);
-    let r; try { r = await apiBlob('invoices_csv', {}); } catch(e){ return toast('Немає зв’язку зі save.php', 5000); }
-    if (!r.ok){ if (r.status === 403){ forgetKey(); INV = null; renderAdmin(); } return toast(r.data.error || 'Не вдалося завантажити реєстр', 5000); }
-    saveBlob(r.blob, r.filename || 'invoices.csv');
-  }
-  $('invRecentSelect').addEventListener('change', async e => {
-    const v = e.target.value; e.target.value = '';
-    if (!v) return;
-    if (v === '__csv__') return downloadInvoicesCsv();
-    if (!getKey()) return toast('Спершу введіть пароль', 4000);
-    try {
-      const r = await apiBlob('invoice_get', { number: Number(v) });
-      if (!r.ok){ if (r.status === 403){ forgetKey(); INV = null; renderAdmin(); } return toast(r.data.error || 'Не вдалося завантажити рахунок', 5000); }
-      saveBlob(r.blob, r.filename || `Rakhunok-${v}.pdf`);
-      toast(`Рахунок № ${v} завантажено повторно`, 4000);
-    } catch(e){ toast('Немає зв’язку зі save.php', 5000); }
-  });
   $('keyBtn').addEventListener('click', async () => {
     if (getKey()){                                          // «забути ключ в браузері»: токен видаляємо і тут, і на сервері (пароль лишається чинним)
-      api('logout', {}, { auth: true }).catch(() => {}); forgetKey(); INV = null; toast('Ключ забуто в цьому браузері'); return renderAdmin();
+      api('logout', {}, { auth: true }).catch(() => {}); forgetKey(); toast('Ключ забуто в цьому браузері'); return renderAdmin();
     }
     let ok;
     if (!(CFG.data && CFG.data.password_set)){
@@ -1361,7 +1266,6 @@ function initPay(banks){
         onSubmit: async pw => { const r = await api('login', { password: pw }); if (!r.ok) return r.data.error || 'Невірний пароль.'; setKey(r.data.token); return null; } });
     }
     renderAdmin(); if (!ok) return;
-    refreshInvoices();
     const n = await flushPending();
     toast(n ? `Автозбереження увімкнено. Опубліковано ${n} нових скорочень` : 'Автозбереження увімкнено ✓', 4000); syncUrl(); renderAdmin();
   });
@@ -1375,59 +1279,6 @@ function initPay(banks){
     const ev = new Event('input', {bubbles:true});
     amountEl.dispatchEvent(ev);
   });
-  // ----- Підказки (з шаблонів/реєстру) для полів «Призначення» та «Платник» -----
-  const nq = s => String(s).toLowerCase().replace(/[’ʼ`]/g, "'");
-  function makeSuggest(inputEl, listEl, getCandidates){
-    let items = [], active = -1;
-    function compute(mode){
-      const all = getCandidates(), q = nq(inputEl.value.trim());
-      if (!q || (mode === 'focus' && all.some(t => nq(t) === q))) return all.slice(0, 8);
-      const tokens = q.split(/\s+/);
-      return all.filter(t => { const n = nq(t); return n !== q && tokens.every(k => n.includes(k)); })
-        .sort((a, b) => (nq(b).startsWith(q) - nq(a).startsWith(q)) || (nq(a).indexOf(tokens[0]) - nq(b).indexOf(tokens[0])) || (a.length - b.length))
-        .slice(0, 6);
-    }
-    function close(){ listEl.hidden = true; active = -1; inputEl.setAttribute('aria-expanded', 'false'); inputEl.removeAttribute('aria-activedescendant'); }
-    function pick(text){
-      inputEl.value = text; close();
-      inputEl.dispatchEvent(new Event('input', { bubbles: true })); inputEl.focus();
-      try { inputEl.setSelectionRange(text.length, text.length); } catch(e){}
-    }
-    function mark(){
-      [...listEl.children].forEach((li, i) => li.setAttribute('aria-selected', String(i === active)));
-      if (active >= 0){ inputEl.setAttribute('aria-activedescendant', listEl.id + '-opt-' + active); listEl.children[active].scrollIntoView({ block: 'nearest' }); }
-      else inputEl.removeAttribute('aria-activedescendant');
-    }
-    function open(mode){
-      items = compute(mode); active = -1;
-      if (!items.length) return close();
-      const q = nq(inputEl.value.trim()), first = q.split(/\s+/)[0];
-      listEl.textContent = '';
-      items.forEach((text, i) => {
-        const li = document.createElement('li'); li.id = listEl.id + '-opt-' + i; li.setAttribute('role', 'option'); li.setAttribute('aria-selected', 'false');
-        const at = first ? nq(text).indexOf(first) : -1;
-        if (at >= 0){ const m = document.createElement('mark'); m.textContent = text.slice(at, at + first.length);
-          li.append(text.slice(0, at), m, text.slice(at + first.length)); } else li.textContent = text;
-        li.addEventListener('click', () => pick(text));
-        listEl.appendChild(li);
-      });
-      listEl.hidden = false; inputEl.setAttribute('aria-expanded', 'true');
-    }
-    inputEl.addEventListener('input', () => open('input'));
-    inputEl.addEventListener('focus', () => open('focus'));
-    inputEl.addEventListener('blur', () => setTimeout(close, 120));
-    inputEl.addEventListener('keydown', e => {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
-        e.preventDefault();
-        if (listEl.hidden){ open('focus'); return; }
-        active = e.key === 'ArrowDown' ? (active + 1) % items.length : (active <= 0 ? items.length - 1 : active - 1); mark();
-      } else if (e.key === 'Enter' && !listEl.hidden && active >= 0){ e.preventDefault(); pick(items[active]); }
-      else if (e.key === 'Escape') close();
-    });
-    listEl.addEventListener('mousedown', e => e.preventDefault());       // клік по підказці не забирає фокус із поля
-  }
-  // Призначення обирається через підготовлений список та, за потреби, квартиру/О/р.
-  makeSuggest($('inv-payer'), $('payer-list'), () => (INV && INV.payers) || []);
   $('resetPay').addEventListener('click', () => { amountEl.value = ''; const apt=$('apartment-select'); if(apt) apt.value='0'; setPurposeTemplate(DEFAULT_PURPOSE); apply(); });
 
   // Параметри з посилання: ?код або ?sum=1500&apt=123&p=…
@@ -1472,7 +1323,7 @@ function initPay(banks){
     if (ADMIN.on && getKey()){                            // ключ міг бути анульований (скидання через пошту) або прострочений
       const w = await api('whoami', {}, { auth: true }).catch(() => null);
       if (w && w.status === 403){ forgetKey(); toast('Ключ недійсний або анульований — введіть пароль знову', 5000); }
-      else if (w && w.ok) refreshInvoices();
+      else if (w && w.ok) { /* ключ перевірено */ }
     }
     apply();
     flushPending().then(n => { if (n){ toast(`Опубліковано ${n} нових скорочень зі списку очікування`, 4000); } syncUrl(); renderAdmin(); });
@@ -1494,7 +1345,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('copyAll').addEventListener('click', () =>
     copyText(fullText()).then(() => toast('Усі реквізити скопійовано')).catch(() => toast('Не вдалося скопіювати')));
   document.getElementById('dlTxt').addEventListener('click', () => { download('rekvizyty-fop.txt','text/plain',fullText()); toast('Файл завантажується'); });
-  document.getElementById('dlVcf').addEventListener('click', () => { download('fop.vcf','text/vcard',buildVcard()); toast('Візитку збережено'); });
   document.getElementById('print').addEventListener('click', () => window.print());
   document.getElementById('cfgRetry').addEventListener('click', () => location.reload());
 
