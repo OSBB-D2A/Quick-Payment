@@ -156,7 +156,7 @@ function update_http_get(string $url, int $timeout = 12): ?string {
         return ($body !== false && $status >= 200 && $status < 300) ? $body : null;
     }
     if ((string)ini_get('allow_url_fopen') === '1') {
-        $ctx = stream_context_create(['http' => ['timeout' => $timeout, 'header' => "User-Agent: Quick-Payment-updater\\r\\n"]]);
+        $ctx = stream_context_create(['http' => ['timeout' => $timeout, 'header' => "User-Agent: Quick-Payment-updater\r\n"]]);
         $body = @file_get_contents($url, false, $ctx);
         return $body === false ? null : $body;
     }
