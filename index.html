@@ -326,12 +326,7 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
           </div>
         </div>
         <div class="p-actions">
-          <select class="btn" id="linksRecentSelect" aria-label="Останні посилання">
-            <option value="" selected>Останні посилання (30)</option>
-          </select>
-          <button type="button" class="btn narrow" id="copyLongLink">Повне посилання</button>
-          <button type="button" class="btn narrow" id="clearPending">Очистити нові</button>
-          <button type="button" class="btn narrow danger" id="annulBtn">Анулювати ключ</button>
+          <button type="button" class="btn narrow danger" id="annulBtn">Анулювати пароль</button>
         </div>
       </div>
     </div>
@@ -594,109 +589,17 @@ function shareUrl(){
   return location.href.split(/[?#]/)[0] + (q.length ? '?' + q.join('&') : '');
 }
 
-// ---------- Скорочення та шаблони з links.json ----------
-const LINKS_URL = 'links.json';
-const fallbackTemplates = () => [DEFAULT_PURPOSE];
-const SAVE_URL = 'save.php';                                  // PHP-скрипт автозбереження (необов'язковий)
-const LS_PENDING = 'pe_pending_links', LS_ADMIN = 'pe_admin', LS_KEY = 'pe_key';
-const STORE = { loaded: false, raw: {}, links: {}, templates: [], pending: {}, pub: new Map(), pen: new Map() };
+// ---------- Адміністрування та API ----------
+const SAVE_URL = 'save.php';
+const LS_ADMIN = 'pe_admin', LS_KEY = 'pe_key';
 const ADMIN = { on: false };
-const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
-
-function cyrb53(str, seed = 0){
-  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
-  for (let i = 0, ch; i < str.length; i++){ ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
-}
-function canonEntry(e){                                   // запис із файлу → {sum, purpose} у тому вигляді, в якому вони йдуть у QR
-  e = e || {};
-  const amt = amountCanon(sanitizeAmount(e.sum == null ? '' : e.sum));
-  const account = String(e.account || CURRENT_ACCOUNT || (ACCOUNTS[0] && ACCOUNTS[0].id) || '');
-  return { account, sum: amt ? amt.payload : '', purpose: buildPay('', e.purpose).purpose };
-}
-const keyOf = c => c.account + '|' + c.sum + '|' + c.purpose;
-function cleanTemplates(arr){
-  const out = [], seen = new Set();
-  for (const s of (Array.isArray(arr) ? arr : [])){ const v = normPurpose(s); if (v && !seen.has(v.toLowerCase())){ seen.add(v.toLowerCase()); out.push(v); } }
-  return out;
-}
-const allTemplates = () => cleanTemplates([
-  ...(STORE.templates.length ? STORE.templates : fallbackTemplates()),
-  ...Object.values(STORE.links).map(e => e.purpose), ...Object.values(STORE.pending).map(e => e.purpose)
-]);
-function readPending(){ try { const o = JSON.parse(localStorage.getItem(LS_PENDING) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch(e){ return {}; } }
-function savePending(){ try { localStorage.setItem(LS_PENDING, JSON.stringify(STORE.pending)); } catch(e){} }
-function indexLinks(){
-  STORE.pub = new Map(); STORE.pen = new Map();
-  for (const [code, e] of Object.entries(STORE.links)){ const k = keyOf(canonEntry(e)); if (!STORE.pub.has(k)) STORE.pub.set(k, code); }
-  for (const [code, e] of Object.entries(STORE.pending)){ const k = keyOf(canonEntry(e)); if (!STORE.pen.has(k)) STORE.pen.set(k, code); }
-}
-const lookupCode = code => own(STORE.links, code) ? STORE.links[code] : (own(STORE.links, String(code).toLowerCase()) ? STORE.links[String(code).toLowerCase()] : null);
-function makeCode(key){                                   // детермінований код: той самий платіж → той самий код на будь-якому пристрої
-  for (let seed = 0; seed < 64; seed++){
-    const code = cyrb53(key, seed).toString(36).slice(0, 5);
-    const taken = own(STORE.links, code) ? STORE.links[code] : (own(STORE.pending, code) ? STORE.pending[code] : null);
-    if (!taken || keyOf(canonEntry(taken)) === key) return code;
-  }
-  return cyrb53(key, 99).toString(36).slice(0, 8);
-}
 const getKey = () => { try { return localStorage.getItem(LS_KEY) || ''; } catch(e){ return ''; } };
 const setKey = v => { try { localStorage.setItem(LS_KEY, v); } catch(e){} };
 const forgetKey = () => { try { localStorage.removeItem(LS_KEY); } catch(e){} };
-function siteUrl(name){                                   // файл поруч зі сторінкою (/pe → /pe/)
+function siteUrl(name){
   let p = location.pathname;
-  if (!p.endsWith('/') && !/\.[a-z0-9]+$/i.test(p.split('/').pop())) p += '/';
+  if (!p.endsWith('/') && !/\\.[a-z0-9]+$/i.test(p.split('/').pop())) p += '/';
   return new URL(name, new URL(p, location.href)).href;
-}
-const linksUrl = () => siteUrl(LINKS_URL);
-async function loadLinks(){
-  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 5000);
-  try {
-    const res = await fetch(linksUrl(), { cache: 'no-cache', signal: ctl.signal });
-    if (res.status === 404){ STORE.loaded = true; STORE.raw = {}; }                 // файлу ще немає — це нормально
-    else if (!res.ok) throw new Error('HTTP ' + res.status);
-    else {
-      const data = await res.json();
-      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('bad json');
-      STORE.raw = data; STORE.loaded = true;
-    }
-  } catch(e){ STORE.loaded = false; STORE.raw = {}; }
-  finally { clearTimeout(tm); }
-  STORE.links = {};
-  const L = STORE.raw.links;
-  if (L && typeof L === 'object' && !Array.isArray(L)) for (const [k, v] of Object.entries(L)) if (v && typeof v === 'object') STORE.links[k] = v;
-  STORE.templates = cleanTemplates(STORE.raw.templates);
-  STORE.pending = readPending();
-  indexLinks();
-  for (const [code, e] of Object.entries(STORE.pending))                            // вже опубліковані у файлі — з «нових» прибираємо
-    if (own(STORE.links, code) || STORE.pub.has(keyOf(canonEntry(e)))) delete STORE.pending[code];
-  savePending(); indexLinks();
-}
-function buildExport(){                                   // links.json = те, що було у файлі + нові скорочення
-  const raw = STORE.raw || {}, out = {};
-  out.templates = Array.isArray(raw.templates) ? raw.templates : fallbackTemplates();
-  out.links = Object.assign({}, (raw.links && typeof raw.links === 'object' && !Array.isArray(raw.links)) ? raw.links : {});
-  for (const [code, e] of Object.entries(STORE.pending)){ const c = canonEntry(e); out.links[code] = c.sum ? { account: c.account, sum: c.sum, purpose: c.purpose } : { account: c.account, purpose: c.purpose }; }
-  for (const k of Object.keys(raw)) if (k !== 'templates' && k !== 'links') out[k] = raw[k];
-  return JSON.stringify(out, null, 2) + '\n';
-}
-const CFG = { loaded: false, data: null };
-async function api(action, body, { auth = false, method = 'POST', timeout = 10000 } = {}){
-  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), timeout);
-  try {
-    const headers = {};
-    if (method !== 'GET') headers['Content-Type'] = 'application/json';
-    if (auth) headers['X-Key'] = getKey();
-    const res = await fetch(siteUrl(SAVE_URL) + '?action=' + action, { method, headers, cache: 'no-store', signal: ctl.signal, body: method === 'GET' ? undefined : JSON.stringify(body || {}) });
-    const data = await res.json().catch(() => ({}));
-    return { ok: res.ok, status: res.status, data };
-  } finally { clearTimeout(tm); }
-}
-async function saveRemote(st, code){                      // POST save.php?action=save → {ok, status, data}
-  const r = await api('save', { account: st.account, sum: st.sum, purpose: st.purpose, code }, { auth: true });
-  return { ok: r.ok && !!r.data.code, status: r.status, data: r.data };
 }
 // ---- реквізити з config.php (через save.php?action=config; пароль/хеш туди не потрапляють) ----
 async function loadConfig(){
@@ -708,10 +611,6 @@ async function loadConfig(){
   CURRENT_ACCOUNT = String((d.default_account || ACCOUNTS[0].id));
   if (!ACCOUNTS.some(a => a.id === CURRENT_ACCOUNT)) CURRENT_ACCOUNT = ACCOUNTS[0].id;
   setCurrentAccount(CURRENT_ACCOUNT, false);
-  PURPOSES = Array.isArray(d.purposes) ? d.purposes.map(normPurpose).filter(Boolean).filter(t=>!/^Інший платіж/i.test(t)) : [];
-  if (!PURPOSES.length) PURPOSES = [DEFAULT_PURPOSE];
-  if (d.default_purpose && !/^Інший платіж/i.test(normPurpose(d.default_purpose))) DEFAULT_PURPOSE = normPurpose(d.default_purpose) || DEFAULT_PURPOSE;
-  if (/^Інший платіж/i.test(DEFAULT_PURPOSE)) DEFAULT_PURPOSE = PURPOSES.find(t=>!/^Інший платіж/i.test(t)) || 'Комунальні внески ОСББ';
   Object.assign(PAY, buildPay('', DEFAULT_PURPOSE));
   return d;
 }
@@ -774,9 +673,7 @@ function restorePurposeText(rawPurpose, apartmentOverride, emit=false){
 function initPurposeUI(){
   const type=document.getElementById('purpose-type'), apt=document.getElementById('apartment-select'), purpose=document.getElementById('purpose');
   if(!type || !apt || !purpose) return;
-  type.innerHTML='';
-  const usable=PURPOSES.filter(t=>!/^Інший платіж/i.test(t));
-  (usable.length?usable:[DEFAULT_PURPOSE]).forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;type.appendChild(o);});
+  refreshPurposeOptions();
   apt.innerHTML='';
   const specify=document.createElement('option'); specify.value='0'; specify.textContent='Вказати'; apt.appendChild(specify);
   APARTMENTS.filter(v=>String(v)!=='0' && String(v)!=='Вказати').forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;apt.appendChild(o);});
@@ -803,10 +700,33 @@ async function loadApartments(){
     APARTMENTS=Array.isArray(data)?data.map(v=>String(v)).filter(Boolean):[];
   }catch(e){APARTMENTS=[];}
 }
+function accountPurposeList(a){
+  const clean = list => (Array.isArray(list) ? list : []).map(normPurpose).filter(Boolean);
+  if (Array.isArray(a.purposes)) return clean(a.purposes);
+  // Перехідний режим для старого config.php: основний рахунок бачить лише стандартне призначення,
+  // інші рахунки — решту старих шаблонів.
+  const legacy = clean(CFG.data && CFG.data.purposes);
+  const legacyDefault = normPurpose((CFG.data && CFG.data.default_purpose) || legacy[0] || '');
+  if (a.id === String((CFG.data && CFG.data.default_account) || '')) return legacyDefault ? [legacyDefault] : legacy.slice(0,1);
+  const others = legacy.filter(p => p !== legacyDefault);
+  return others.length ? others : clean([a.default_purpose]);
+}
+function refreshPurposeOptions(){
+  const type = document.getElementById('purpose-type');
+  if (!type) return;
+  type.innerHTML = '';
+  (PURPOSES.length ? PURPOSES : [DEFAULT_PURPOSE]).forEach(t => {
+    const o = document.createElement('option'); o.value = t; o.textContent = t; type.appendChild(o);
+  });
+}
 function setCurrentAccount(id, resetPurpose = true){
   const a = ACCOUNTS.find(x => x.id === id) || ACCOUNTS[0];
   if (!a) return;
   CURRENT_ACCOUNT = a.id;
+  PURPOSES = accountPurposeList(a);
+  if (!PURPOSES.length) PURPOSES = [normPurpose(a.default_purpose) || 'Оплата за послуги'];
+  DEFAULT_PURPOSE = normPurpose(a.default_purpose || ((CFG.data && CFG.data.default_purpose) && a.id === CFG.data.default_account ? CFG.data.default_purpose : '') || PURPOSES[0]);
+  if (!PURPOSES.includes(DEFAULT_PURPOSE)) DEFAULT_PURPOSE = PURPOSES[0];
   PAYEE = { name: String(a.name), iban: String(a.iban).replace(/\s/g,''), taxId: String(a.tax_id || ''), id: a.id };
   const sel = document.getElementById('account-select');
   if (sel) sel.value = a.id;
@@ -815,6 +735,7 @@ function setCurrentAccount(id, resetPurpose = true){
   const set = (id, v) => { const el = document.getElementById(id); if (!el) return; if ('value' in el) el.value = v || ''; else el.textContent = v || ''; };
   set('account-id', a.name); set('iban', PAYEE.iban); set('tax-id', a.tax_id); set('bank', a.bank); set('mfo', a.mfo);
   set('bank-code', a.bank_edrpou);
+  refreshPurposeOptions();
   if (resetPurpose) setPurposeTemplate(DEFAULT_PURPOSE);
 }
 function applyConfig(d){
@@ -865,45 +786,8 @@ function passwordDialog({ title, text, confirm = false, submitText = 'Продо
     dlg.showModal(); p1.focus();
   });
 }
-function addPublished(code, st){                          // запис уже у links.json на сервері — відображаємо це локально
-  const e = st.sum ? { account: st.account, sum: st.sum, purpose: st.purpose } : { account: st.account, purpose: st.purpose };
-  STORE.links[code] = e;
-  if (!STORE.raw.links || typeof STORE.raw.links !== 'object' || Array.isArray(STORE.raw.links)) STORE.raw.links = {};
-  STORE.raw.links[code] = e;
-  const k = keyOf(st);
-  for (const [c, pe] of Object.entries(STORE.pending)) if (c === code || keyOf(canonEntry(pe)) === k) delete STORE.pending[c];
-  savePending(); indexLinks();
-}
-async function flushPending(){                            // «нові» скорочення, створені без ключа, відправляємо на сервер
-  if (!ADMIN.on || !getKey() || !STORE.loaded) return 0;
-  let n = 0;
-  for (const [code, e] of Object.entries({ ...STORE.pending })){
-    try {
-      const c = canonEntry(e), r = await saveRemote(c, code);
-      if (r.ok){ addPublished(r.data.code, c); n++; }
-      else { if (r.status === 403) forgetKey(); break; }
-    } catch(err){ break; }
-  }
-  return n;
-}
-function copyLater(promise){                              // Safari вимагає копіювати одразу в обробнику кліку — тому Promise у ClipboardItem
-  if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write && window.isSecureContext){
-    return navigator.clipboard.write([new ClipboardItem({ 'text/plain': promise.then(s => new Blob([s], { type: 'text/plain' })) })])
-      .catch(() => promise.then(copyText));
-  }
-  return promise.then(copyText);
-}
-const pageBase = () => location.href.split(/[?#]/)[0];
-const shortUrl = (code, apartment='') => pageBase() + '?' + code + (apartment && apartment!=='0' ? '&apt=' + encodeURIComponent(apartment) : '');
+function copyLater(promise){ return promise.then(copyText); }
 const curState = () => ({ account: CURRENT_ACCOUNT, sum: PAY.amt ? PAY.amt.payload : '', purpose: PAY.purpose, apartment: currentApartment() });
-const isDefaultState = s => s.account === CURRENT_ACCOUNT && !s.sum && s.purpose === DEFAULT_PURPOSE;
-const RESERVED_KEYS = new Set(['admin', 'sum', 'amount', 'purpose', 'desc', 'p', 'c', 'a', 'apt']);
-function parseCode(qs){                                   // ?k7f3q  або  ?c=k7f3q
-  const ok = s => /^[A-Za-z0-9_-]{3,32}$/.test(s);
-  const c = qs.get('c'); if (c && ok(c)) return c;
-  for (const [k, v] of qs.entries()) if (v === '' && !RESERVED_KEYS.has(k) && ok(k)) return k;
-  return null;
-}
 function initAdminFlag(qs){
                                // ?admin — увімкнути, ?admin=0 — вимкнути (запам'ятовується в браузері)
   if (qs.has('admin')){
@@ -979,14 +863,15 @@ const OK_ICON   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const toastEl = document.getElementById('toast'); let toastT;
 function toast(msg, ms = 1900){ toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('show'), ms); }
 function copyText(text){
-  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
-  return new Promise((res, rej) => {
+  const fallback = () => new Promise((res, rej) => {
     const ta = document.createElement('textarea');
     ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
     document.body.appendChild(ta); ta.select();
     try { document.execCommand('copy') ? res() : rej(); } catch(e){ rej(e); }
     document.body.removeChild(ta);
   });
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text).catch(fallback);
+  return fallback();
 }
 function initCopy(){
   document.querySelectorAll('.copy-button').forEach(btn => {
@@ -1030,7 +915,6 @@ function initPay(banks){
   const $ = id => document.getElementById(id);
   const amountEl = $('amount'), purposeEl = $('purpose'), warnEl = $('pay-warn');
   const svg = $('qr-svg'), qrPath = $('qr-path'), logoBg = $('qr-logo-bg'), logoChar = $('qr-logo-char'), qrWarning = $('qr-warning');
-  let awaiting = false;               // чекаємо links.json, щоб не затирати ?код в адресному рядку
 
   function drawQr(q){
     if (!q || typeof q.getModuleCount !== 'function' || typeof q.isDark !== 'function' || !svg || !qrPath || !logoBg || !logoChar || !svg.parentElement) return false;
@@ -1118,10 +1002,7 @@ function initPay(banks){
   }
   amountEl.addEventListener('input', () => { fixAmount(); later(); }); purposeEl.addEventListener('input', later);
   function syncUrl(){
-    if (awaiting) return;
-    const st = curState(); let url = shareUrl();
-    if (!isDefaultState(st) && STORE.pub.has(keyOf(st))) url = shortUrl(STORE.pub.get(keyOf(st)), st.apartment);
-    try { history.replaceState(null, '', url); } catch(e){}
+    try { history.replaceState(null, '', shareUrl()); } catch(e){}
   }
   const UPDATE = { checked:false, busy:false, available:false, latest:'' };
   function renderUpdateStatus(){
@@ -1158,7 +1039,7 @@ function initPay(banks){
   }
   async function runUpdate(){
     if(!getKey() || UPDATE.busy) return;
-    if(!confirm(`Оновити сторінку до v${UPDATE.latest}?\\n\\nНалаштування config.php і короткі посилання links.json не змінюватимуться.`)) return;
+    if(!confirm(`Оновити сторінку до v${UPDATE.latest}?\\n\\nНалаштування config.php збережуться.`)) return;
     UPDATE.busy=true; renderUpdateStatus();
     const btn=$('checkUpdateBtn'); if(btn) btn.disabled=true;
     try{
@@ -1179,80 +1060,19 @@ function initPay(banks){
 
   function renderAdmin(){
     const box = $('admin-box'); box.hidden = !ADMIN.on; if (!ADMIN.on) return;
-    const pub = Object.keys(STORE.links).length, pen = Object.keys(STORE.pending).length, st = curState(), k = keyOf(st);
     const pwSet = !!(CFG.data && CFG.data.password_set), hasKey = !!getKey();
-    let info;
-    if (!STORE.loaded) info = 'links.json не прочитано (відкрийте сторінку через сайт, а не як файл) — скорочення не створюються.';
-    else {
-      info = `У links.json: ${pub} · нових, ще не опублікованих: ${pen}. Автозбереження: ${hasKey ? 'увімкнено ✓' : (pwSet ? 'вимкнено — введіть пароль.' : 'вимкнено — пароль ще не задано.')}`;
-      if (!isDefaultState(st)){
-        if (STORE.pub.has(k)) info += ` Поточний платіж: ?${STORE.pub.get(k)} — опубліковано ✓`;
-        else if (STORE.pen.has(k)) info += ` Поточний платіж: ?${STORE.pen.get(k)} — ще не в links.json ⏳`;
-      }
-    }
-    $('admin-info').textContent = info;
-    $('keyBtn').textContent = hasKey ? 'забути ключ в браузері' : (pwSet ? 'ввести пароль' : 'задати пароль');
+    $('admin-info').textContent = hasKey
+      ? 'Доступ адміністратора активний. Перевірка та встановлення оновлень доступні нижче.'
+      : (pwSet ? 'Введіть пароль адміністратора, щоб перевірити й установити оновлення.' : 'Задайте пароль адміністратора для керування оновленнями.');
+    $('keyBtn').textContent = hasKey ? 'забути ключ у браузері' : (pwSet ? 'ввести пароль' : 'задати пароль');
     $('annulBtn').hidden = !pwSet;
-    $('clearPending').hidden = !pen;
-    renderLinksSelect();
     renderUpdateStatus();
     if(hasKey && !UPDATE.checked && !UPDATE.busy) checkForUpdate(true);
   }
-  function renderLinksSelect(){                            // спадний перелік останніх 30 посилань + «Завантажити links.json» останнім пунктом
-    const sel = $('linksRecentSelect');
-    const codes = Object.keys(STORE.links).slice(-30).reverse();
-    sel.innerHTML = '';
-    const ph = document.createElement('option'); ph.value = ''; ph.selected = true;
-    ph.textContent = codes.length ? 'Останні посилання (30)' : 'Посилань ще немає';
-    sel.appendChild(ph);
-    for (const code of codes){
-      const e = canonEntry(STORE.links[code]); const o = document.createElement('option'); o.value = code;
-      o.textContent = `${e.purpose} — ${e.sum ? fmtGrn(e.sum) : 'без суми'}`;
-      sel.appendChild(o);
-    }
-    const dl = document.createElement('option'); dl.value = '__dl__'; dl.textContent = 'Завантажити links.json';
-    sel.appendChild(dl);
-    sel.disabled = !STORE.loaded;
-  }
   $('copyPayLink').addEventListener('click', () => {
-    const st = curState(), k = keyOf(st);
-    let msg = 'Посилання на платіж скопійовано', ms = 1900;
-    const job = (async () => {
-      if (isDefaultState(st)) return shareUrl();
-      if (STORE.pub.has(k)){ msg = 'Коротке посилання скопійовано'; return shortUrl(STORE.pub.get(k), st.apartment); }
-      if (!(ADMIN.on && STORE.loaded)) return shareUrl();
-      let code = STORE.pen.get(k) || makeCode(k), why = '';
-      if (getKey()){                                      // автозбереження: save.php сам дописує в links.json
-        try {
-          const r = await saveRemote(st, code);
-          if (r.ok){ code = r.data.code; addPublished(code, st); msg = 'Збережено в links.json ✓ Коротке посилання скопійовано'; return shortUrl(code, st.apartment); }
-          if (r.status === 403){ forgetKey(); why = 'Ключ недійсний або анульований — введіть пароль знову. '; }
-          else why = 'Автозбереження не вдалося (' + (r.data.error || 'HTTP ' + r.status) + '). ';
-        } catch(e){ why = 'Автозбереження недоступне (немає зв\u2019язку зі save.php). '; }
-      }
-      if (!STORE.pen.has(k)){ STORE.pending[code] = st.sum ? { account: st.account, sum: st.sum, purpose: st.purpose } : { account: st.account, purpose: st.purpose }; savePending(); indexLinks(); }
-      msg = why + `Скопійовано ?${code}. Воно запрацює після того, як ви додасте його в links.json (кнопка «Завантажити links.json»)`; ms = 7000;
-      return shortUrl(code, st.apartment);
-    })();
-    copyLater(job).then(() => { toast(msg, ms); syncUrl(); renderAdmin(); }).catch(() => { toast('Не вдалося скопіювати'); renderAdmin(); });
-  });
-  function downloadLinksJson(){
-    if (!STORE.loaded) return toast('links.json не прочитано — завантаження заблоковано, щоб не втратити наявні записи', 5000);
-    const pen = Object.keys(STORE.pending).length;
-    download('links.json', 'application/json', buildExport());
-    toast(pen ? 'Замініть links.json на сервері цим файлом — і нові скорочення запрацюють' : 'Копію links.json завантажено', 6000);
-  }
-  $('linksRecentSelect').addEventListener('change', e => {
-    const v = e.target.value; e.target.value = '';
-    if (!v) return;
-    if (v === '__dl__') return downloadLinksJson();
-    copyText(shortUrl(v, apartmentFromPurpose((STORE.links[v]||{}).purpose))).then(() => toast('Коротке посилання скопійовано')).catch(() => toast('Не вдалося скопіювати'));
-  });
-  $('copyLongLink').addEventListener('click', () => copyText(shareUrl()).then(() => toast('Повне посилання скопійовано (працює одразу)')).catch(() => toast('Не вдалося скопіювати')));
-  $('clearPending').addEventListener('click', () => {
-    const n = Object.keys(STORE.pending).length; if (!n) return;
-    if (!confirm(`Видалити ${n} нових скорочень, які ще не опубліковано в links.json?`)) return;
-    STORE.pending = {}; savePending(); indexLinks(); renderAdmin();
+    copyLater(Promise.resolve(shareUrl()))
+      .then(() => toast('Повне посилання на платіж скопійовано'))
+      .catch(() => toast('Не вдалося скопіювати. Виділіть адресу сторінки та скопіюйте її вручну.', 5000));
   });
   $('keyBtn').addEventListener('click', async () => {
     if (getKey()){                                          // «забути ключ в браузері»: токен видаляємо і тут, і на сервері (пароль лишається чинним)
@@ -1261,16 +1081,15 @@ function initPay(banks){
     let ok;
     if (!(CFG.data && CFG.data.password_set)){
       ok = await passwordDialog({ title: 'Задати пароль автозбереження', confirm: true, submitText: 'Задати пароль',
-        text: 'Пароль зберігається на сервері лише у вигляді хеша, а в цьому браузері — тільки ключ. Мінімум 8 символів.',
+        text: 'Пароль зберігається на сервері лише у вигляді хеша, а в цьому браузері — тільки ключ для адміністрування. Мінімум 8 символів.',
         onSubmit: async pw => { const r = await api('setup', { password: pw }); if (!r.ok) return r.data.error || 'Не вдалося задати пароль.'; setKey(r.data.token); CFG.data.password_set = true; return null; } });
     } else {
       ok = await passwordDialog({ title: 'Ввести пароль', submitText: 'Увійти',
-        text: 'Пароль потрібен один раз — далі цей браузер зберігає ключ, доки ви його не забудете чи не анулюєте.',
+        text: 'Пароль потрібен один раз — далі цей браузер зберігає ключ для перевірки та встановлення оновлень.',
         onSubmit: async pw => { const r = await api('login', { password: pw }); if (!r.ok) return r.data.error || 'Невірний пароль.'; setKey(r.data.token); return null; } });
     }
     renderAdmin(); if (!ok) return;
-    const n = await flushPending();
-    toast(n ? `Автозбереження увімкнено. Опубліковано ${n} нових скорочень` : 'Автозбереження увімкнено ✓', 4000); syncUrl(); renderAdmin();
+    toast('Доступ адміністратора активовано ✓', 3000); renderAdmin();
   });
   $('annulBtn').addEventListener('click', async () => {
     if (!confirm('Надіслати на пошту ФОП лист із посиланням для повного скидання ключа?\n\nПісля підтвердження за посиланням пароль буде видалено, а всі браузери розлогінено.')) return;
@@ -1284,53 +1103,31 @@ function initPay(banks){
   });
   $('resetPay').addEventListener('click', () => { amountEl.value = ''; const apt=$('apartment-select'); if(apt) apt.value='0'; setPurposeTemplate(DEFAULT_PURPOSE); apply(); });
 
-  // Параметри з посилання: ?код або ?sum=1500&apt=123&p=…
+  // Параметри довгого посилання: ?sum=1500&apt=123&p=…
   const qs = new URLSearchParams(location.search);
   initAdminFlag(qs);
-  const code = parseCode(qs);
   const apartmentFromUrl = qs.get('apt') || '';
-  if (code){ awaiting = true; document.body.classList.add('loading-link'); }
-  else {
-    const accountFromUrl = qs.get('a'); if (accountFromUrl && ACCOUNTS.some(a => a.id === accountFromUrl)) setCurrentAccount(accountFromUrl, false);
-    const sum = qs.get('sum') ?? qs.get('amount');
-    let pur = qs.get('purpose') ?? qs.get('desc');
-    if (qs.get('p')) { try { pur = decodeCp1251(fromBase64Url(qs.get('p'))); } catch(e){} }
-    if (sum) amountEl.value = sanitizeAmount(sum);
-    if (pur && normPurpose(pur)) restorePurposeText(pur, apartmentFromUrl, false);
-    if (apartmentFromUrl && !['or','apartment'].includes(purposeKind($('purpose-type').value))) {
-      const apartmentTemplate = PURPOSES.find(x=>['or','apartment'].includes(purposeKind(x)));
-      if(apartmentTemplate) setPurposeTemplate(apartmentTemplate, apartmentFromUrl, false);
-    } else if (apartmentFromUrl) {
-      setPurposeTemplate($('purpose-type').value, apartmentFromUrl, false);
-    }
+  const accountFromUrl = qs.get('a');
+  if (accountFromUrl && ACCOUNTS.some(a => a.id === accountFromUrl)) setCurrentAccount(accountFromUrl, true);
+  const sum = qs.get('sum') ?? qs.get('amount');
+  let pur = qs.get('purpose') ?? qs.get('desc');
+  if (qs.get('p')) { try { pur = decodeCp1251(fromBase64Url(qs.get('p'))); } catch(e){} }
+  if (sum) amountEl.value = sanitizeAmount(sum);
+  if (pur && normPurpose(pur)) restorePurposeText(pur, apartmentFromUrl, false);
+  if (apartmentFromUrl && !['or','apartment'].includes(purposeKind($('purpose-type').value))) {
+    const apartmentTemplate = PURPOSES.find(x=>['or','apartment'].includes(purposeKind(x)));
+    if(apartmentTemplate) setPurposeTemplate(apartmentTemplate, apartmentFromUrl, false);
+  } else if (apartmentFromUrl) {
+    setPurposeTemplate($('purpose-type').value, apartmentFromUrl, false);
   }
-  apply();                            // одразу показуємо QR (стандартний або з параметрів)
-  loadLinks().then(async () => {
-    if (code){
-      awaiting = false; document.body.classList.remove('loading-link');
-      const e = lookupCode(code);     // немає в файлі → лишаються стандартні дані
-      if (e){
-        const c = canonEntry(e);
-        if (c.account && ACCOUNTS.some(a => a.id === c.account)) setCurrentAccount(c.account, false);
-        amountEl.value = c.sum;
-        const linkedApartment = apartmentFromUrl || apartmentFromPurpose(c.purpose);
-        restorePurposeText(c.purpose, linkedApartment, false);
-        if (linkedApartment && !['or','apartment'].includes(purposeKind($('purpose-type').value))) {
-          const apartmentTemplate = PURPOSES.find(x=>['or','apartment'].includes(purposeKind(x)));
-          if(apartmentTemplate) setPurposeTemplate(apartmentTemplate, linkedApartment, false);
-        } else if (linkedApartment) {
-          setPurposeTemplate($('purpose-type').value, linkedApartment, false);
-        }
-      }
-    }
-    if (ADMIN.on && getKey()){                            // ключ міг бути анульований (скидання через пошту) або прострочений
+  apply();
+  (async () => {
+    if (ADMIN.on && getKey()) {
       const w = await api('whoami', {}, { auth: true }).catch(() => null);
-      if (w && w.status === 403){ forgetKey(); toast('Ключ недійсний або анульований — введіть пароль знову', 5000); }
-      else if (w && w.ok) { /* ключ перевірено */ }
+      if (w && w.status === 403) { forgetKey(); toast('Ключ недійсний або анульований — введіть пароль знову', 5000); }
     }
     apply();
-    flushPending().then(n => { if (n){ toast(`Опубліковано ${n} нових скорочень зі списку очікування`, 4000); } syncUrl(); renderAdmin(); });
-  });
+  })();
 }
 
 // ---------- Ініціалізація ----------
