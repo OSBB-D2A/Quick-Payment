@@ -740,7 +740,7 @@ function purposeKind(s){
 }
 function composePurpose(template, apartment){
   const kind = purposeKind(template);
-  if (kind === 'or') return normPurpose(template.replace(/О\/р\s*___/i, 'О/р ' + apartment));
+  if (kind === 'or') return normPurpose(template.replace(/О\/р\s*___/i, 'о/р ' + apartment));
   if (kind === 'apartment') return normPurpose(template.replace(/кв\.\s*ХХХ/i, 'кв. ' + apartment));
   return normPurpose(template);
 }
