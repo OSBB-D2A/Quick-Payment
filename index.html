@@ -600,6 +600,38 @@ function siteUrl(name){
   if (!p.endsWith('/') && !/\\.[a-z0-9]+$/i.test(p.split('/').pop())) p += '/';
   return new URL(name, new URL(p, location.href)).href;
 }
+// Єдина точка доступу до save.php: нормалізує JSON-відповідь і передає ключ адміна.
+async function api(action, payload = null, options = {}){
+  const method = String(options.method || 'POST').toUpperCase();
+  const url = new URL(SAVE_URL, new URL(location.pathname.endsWith('/') ? location.pathname : location.pathname.replace(/[^/]*$/, ''), location.origin));
+  url.searchParams.set('action', action);
+  const headers = { 'Accept': 'application/json' };
+  if (method !== 'GET' && method !== 'HEAD') headers['Content-Type'] = 'application/json';
+  if (options.auth) {
+    const key = getKey();
+    if (key) headers['X-Key'] = key;
+  }
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let timeoutId = null;
+  if (controller && Number(options.timeout) > 0) timeoutId = setTimeout(() => controller.abort(), Number(options.timeout));
+  try {
+    const response = await fetch(url.href, {
+      method,
+      headers,
+      cache: 'no-store',
+      credentials: 'same-origin',
+      body: (method === 'GET' || method === 'HEAD' || payload === null) ? undefined : JSON.stringify(payload),
+      signal: controller ? controller.signal : undefined
+    });
+    const raw = await response.text();
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; }
+    catch (_) { data = { error: raw ? 'Сервер повернув не JSON. Перевірте PHP та адресу save.php.' : 'Сервер повернув порожню відповідь.' }; }
+    return { ok: response.ok, status: response.status, data };
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId);
+  }
+}
 // ---- реквізити з config.php (через save.php?action=config; пароль/хеш туди не потрапляють) ----
 async function loadConfig(){
   const r = await api('config', null, { method: 'GET' });
