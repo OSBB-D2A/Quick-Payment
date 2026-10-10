@@ -165,7 +165,20 @@ function action_check_update(): void {
     $local = local_version();
     $url = sprintf('https://raw.githubusercontent.com/%s/%s/%s/VERSION', UPDATE_REPO_OWNER, UPDATE_REPO_NAME, UPDATE_BRANCH);
     $remote = update_http_get($url, 10);
-    if ($remote === null) respond_json(200, ['ok' => false, 'error' => 'Не вдалося зв’язатися з GitHub. Перевірте доступ сервера до зовнішніх HTTPS-запитів.', 'local' => $local]);
+
+    // Якщо raw.githubusercontent.com недоступний з хостингу, пробуємо GitHub Contents API.
+    if ($remote === null) {
+        $apiUrl = sprintf('https://api.github.com/repos/%s/%s/contents/VERSION?ref=%s', UPDATE_REPO_OWNER, UPDATE_REPO_NAME, UPDATE_BRANCH);
+        $metaRaw = update_http_get($apiUrl, 10);
+        if ($metaRaw !== null) {
+            $meta = json_decode($metaRaw, true);
+            if (is_array($meta) && ($meta['encoding'] ?? '') === 'base64' && isset($meta['content'])) {
+                $decoded = base64_decode((string)$meta['content'], true);
+                if ($decoded !== false) $remote = $decoded;
+            }
+        }
+    }
+    if ($remote === null) respond_json(200, ['ok' => false, 'error' => 'Не вдалося прочитати VERSION з GitHub ні через raw.githubusercontent.com, ні через GitHub API. Перевірте вихідні HTTPS-запити сервера.', 'local' => $local]);
     $latest = trim($remote);
     if ($latest === '' || strlen($latest) > 40 || !preg_match('/^[\\w.\\-]+$/', $latest)) respond_json(200, ['ok' => false, 'error' => 'GitHub повернув некоректний номер версії.', 'local' => $local]);
     respond_json(200, ['ok' => true, 'local' => $local, 'latest' => $latest, 'updateAvailable' => version_compare($latest, $local, '>')]);
