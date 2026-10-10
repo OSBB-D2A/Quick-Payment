@@ -161,6 +161,7 @@ body.android .bank-links{grid-template-columns:repeat(5,1fr)}
 .input input.has-suffix{padding-right:40px}
 .input .suffix{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:700;pointer-events:none}
 .p-grid{display:grid;grid-template-columns:170px 1fr;gap:0 12px}
+.p-grid .purpose-type-field{grid-column:1 / -1}
 .opt{font-weight:400;opacity:.8}
 .vis-toggle{margin-left:8px}
 .vis-label{display:inline-flex;align-items:center;gap:4px;font-weight:500;font-size:12px;color:var(--muted);cursor:pointer;text-transform:none;letter-spacing:0}
@@ -294,15 +295,15 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
     <!-- Параметри платежу (сума / призначення) -->
     <div class="params">
       <div class="p-grid">
-        <div class="field"><label for="amount">Сума</label>
-          <div class="input"><input id="amount" class="has-suffix" type="text" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="Вкажіть суму" required aria-required="true"><span class="suffix">₴</span></div></div>
-        <div class="field"><label for="purpose-type">Призначення платежу</label>
-          <div class="input"><select id="purpose-type" class="plain-select" aria-label="Призначення платежу"></select></div></div>
         <div class="field" id="apartment-field" hidden>
           <label for="apartment-select">Квартира (о/р)</label>
           <div class="input"><select id="apartment-select" class="plain-select" aria-label="Квартира або особовий рахунок"></select></div>
           <p class="hint" id="apartment-hint">Оберіть номер зі списку.</p>
         </div>
+        <div class="field"><label for="amount">Сума</label>
+          <div class="input"><input id="amount" class="has-suffix" type="text" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="Вкажіть суму" required aria-required="true"><span class="suffix">₴</span></div></div>
+        <div class="field purpose-type-field"><label for="purpose-type">Призначення платежу</label>
+          <div class="input"><select id="purpose-type" class="plain-select" aria-label="Призначення платежу"></select></div></div>
         <input id="purpose" type="hidden" value="">
       </div>
       <p class="warn" id="pay-warn" role="status" aria-live="polite" hidden></p>
@@ -374,6 +375,10 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
       <div class="input"><input id="iban" class="mono" type="text" value="" readonly>
         <button class="copy-button" data-copy-id="iban" aria-label="Копіювати"></button></div></div>
 
+
+    <div class="field"><label for="purpose-display">Призначення платежу:</label>
+      <div class="input"><textarea id="purpose-display" class="wrap-field" rows="2" readonly></textarea>
+        <button class="copy-button" data-copy-id="purpose-display" aria-label="Копіювати"></button></div></div>
 
     <div class="field" id="amount-field" hidden><label for="pay-amount">Сума, ₴:</label>
       <div class="input"><input id="pay-amount" class="mono" type="text" value="" readonly>
@@ -1085,6 +1090,7 @@ function initPay(banks){
     if (apartmentMissing) validationMessages.push('Вкажіть № квартири');
     if (validationMessages.length) {
       PAY.amt = null; PAY.purpose = r.purpose; PAY.path = r.path; PAY.dropped = r.dropped;
+      $('purpose-display').value = r.purpose || '';
       const message = validationMessages.join('\n');
       warnEl.textContent = message; warnEl.hidden = false;
       if (qrWarning) { qrWarning.textContent = message; qrWarning.hidden = false; }
@@ -1108,6 +1114,7 @@ function initPay(banks){
       return;
     }
     PAY.amt = r.amt; PAY.purpose = r.purpose; PAY.path = r.path; PAY.dropped = r.dropped;
+    $('purpose-display').value = r.purpose || '';
     $('qr-link').href = payUrl();
     banks.refresh();
     $('amount-field').hidden = !r.amt; $('pay-amount').value = r.amt ? r.amt.plain : '';
