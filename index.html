@@ -298,7 +298,6 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
         <div class="field" id="apartment-field" hidden>
           <label for="apartment-select">Квартира (о/р)</label>
           <div class="input"><select id="apartment-select" class="plain-select" aria-label="Квартира або особовий рахунок"></select></div>
-          <p class="hint" id="apartment-hint">Оберіть номер зі списку.</p>
         </div>
         <div class="field"><label for="amount">Сума</label>
           <div class="input"><input id="amount" class="has-suffix" type="text" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="Вкажіть суму" required aria-required="true"><span class="suffix">₴</span></div></div>
@@ -802,7 +801,12 @@ function initPurposeUI(){
     document.getElementById('apartment-field').hidden=!(k==='or'||k==='apartment');
     update();
   });
-  apt.addEventListener('change',update);
+  apt.addEventListener('change',()=>{
+    // Фіксуємо вибране значення в самому select і синхронізуємо призначення платежу.
+    const selected=apt.options[apt.selectedIndex];
+    if(selected) apt.value=selected.value;
+    update();
+  });
   setPurposeTemplate(DEFAULT_PURPOSE);
 }
 async function loadApartments(){
