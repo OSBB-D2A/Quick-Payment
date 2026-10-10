@@ -708,6 +708,10 @@ function accountPurposeList(a){
   const legacy = clean(CFG.data && CFG.data.purposes);
   const legacyDefault = normPurpose((CFG.data && CFG.data.default_purpose) || legacy[0] || '');
   if (a.id === String((CFG.data && CFG.data.default_account) || '')) return legacyDefault ? [legacyDefault] : legacy.slice(0,1);
+  if (a.id === 'dobrovilnii' || /добровіль/i.test(String(a.label || ''))) {
+    const voluntary = legacy.filter(p => /^(Добровільний внесок|Інший платіж)/i.test(p));
+    if (voluntary.length) return voluntary;
+  }
   const others = legacy.filter(p => p !== legacyDefault);
   return others.length ? others : clean([a.default_purpose]);
 }
