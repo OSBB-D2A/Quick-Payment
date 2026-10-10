@@ -299,7 +299,7 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
         <div class="field"><label for="purpose-type">Призначення платежу</label>
           <div class="input"><select id="purpose-type" class="plain-select" aria-label="Призначення платежу"></select></div></div>
         <div class="field" id="apartment-field" hidden>
-          <label for="apartment-select">Квартира (о/р).</label>
+          <label for="apartment-select">Квартира (о/р)</label>
           <div class="input"><select id="apartment-select" class="plain-select" aria-label="Квартира або особовий рахунок"></select></div>
           <p class="hint" id="apartment-hint">Оберіть номер зі списку.</p>
         </div>
@@ -747,7 +747,16 @@ function setPurposeTemplate(template, apartment, emit=true){
   const t=normPurpose(template || DEFAULT_PURPOSE), kind=purposeKind(t);
   type.value=t;
   af.hidden=!(kind==='or'||kind==='apartment');
-  if((kind==='or'||kind==='apartment') && apartment && [...apt.options].some(o=>o.value===String(apartment))) apt.value=String(apartment);
+  if((kind==='or'||kind==='apartment') && apt){
+    const requested=String(apartment || '').trim();
+    if(requested && ![...apt.options].some(o=>o.value===requested)){
+      const option=document.createElement('option');
+      option.value=requested; option.textContent=requested;
+      apt.appendChild(option);
+    }
+    if(requested) apt.value=requested;
+    else if(!apt.value) apt.value='0';
+  }
   purpose.value=composePurpose(t,apt ? apt.value : '');
   if(emit) purpose.dispatchEvent(new Event('input',{bubbles:true}));
 }
@@ -1356,9 +1365,11 @@ function initPay(banks){
     if (qs.get('p')) { try { pur = decodeCp1251(fromBase64Url(qs.get('p'))); } catch(e){} }
     if (sum) amountEl.value = sanitizeAmount(sum);
     if (pur && normPurpose(pur)) restorePurposeText(pur, apartmentFromUrl, false);
-    else if (apartmentFromUrl) {
+    if (apartmentFromUrl && !['or','apartment'].includes(purposeKind($('purpose-type').value))) {
       const apartmentTemplate = PURPOSES.find(x=>['or','apartment'].includes(purposeKind(x)));
       if(apartmentTemplate) setPurposeTemplate(apartmentTemplate, apartmentFromUrl, false);
+    } else if (apartmentFromUrl) {
+      setPurposeTemplate($('purpose-type').value, apartmentFromUrl, false);
     }
   }
   apply();                            // одразу показуємо QR (стандартний або з параметрів)
@@ -1366,7 +1377,19 @@ function initPay(banks){
     if (code){
       awaiting = false; document.body.classList.remove('loading-link');
       const e = lookupCode(code);     // немає в файлі → лишаються стандартні дані
-      if (e){ const c = canonEntry(e); if (c.account && ACCOUNTS.some(a => a.id === c.account)) setCurrentAccount(c.account, false); amountEl.value = c.sum; restorePurposeText(c.purpose, apartmentFromUrl || apartmentFromPurpose(c.purpose), false); }
+      if (e){
+        const c = canonEntry(e);
+        if (c.account && ACCOUNTS.some(a => a.id === c.account)) setCurrentAccount(c.account, false);
+        amountEl.value = c.sum;
+        const linkedApartment = apartmentFromUrl || apartmentFromPurpose(c.purpose);
+        restorePurposeText(c.purpose, linkedApartment, false);
+        if (linkedApartment && !['or','apartment'].includes(purposeKind($('purpose-type').value))) {
+          const apartmentTemplate = PURPOSES.find(x=>['or','apartment'].includes(purposeKind(x)));
+          if(apartmentTemplate) setPurposeTemplate(apartmentTemplate, linkedApartment, false);
+        } else if (linkedApartment) {
+          setPurposeTemplate($('purpose-type').value, linkedApartment, false);
+        }
+      }
     }
     if (ADMIN.on && getKey()){                            // ключ міг бути анульований (скидання через пошту) або прострочений
       const w = await api('whoami', {}, { auth: true }).catch(() => null);
