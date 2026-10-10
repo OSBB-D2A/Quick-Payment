@@ -1074,6 +1074,7 @@ function initPay(banks){
     if(hasKey && !UPDATE.checked && !UPDATE.busy) checkForUpdate(true);
   }
   $('copyPayLink').addEventListener('click', () => {
+    apply();
     copyLater(Promise.resolve(shareUrl()))
       .then(() => toast('Повне посилання на платіж скопійовано'))
       .catch(() => toast('Не вдалося скопіювати. Виділіть адресу сторінки та скопіюйте її вручну.', 5000));
