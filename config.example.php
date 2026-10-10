@@ -3,7 +3,6 @@
   "_readme": "Конфігурація сторінки швидкої оплати ОСББ. Перший рядок не видаляти.",
   "password_hash": "",
   "admin_email": "osbb.dontsia@gmail.com",
-  "mail_from": "",
   "site_url": "https://dontsa2a.kyiv.ua/quick-payment/",
   "session_days": 30,
   "timezone": "Europe/Kyiv",
@@ -78,6 +77,4 @@
     "show_phone": true,
     "show_email": true
   },
-  "auth": [],
-  "reset": []
 }
