@@ -1135,7 +1135,10 @@ function initPay(banks){
     install.disabled=UPDATE.busy;
   }
   async function checkForUpdate(silent=false){
-    if(!getKey()) return;
+    if(!getKey()){
+      if(!silent) toast('Спочатку авторизуйтеся в адмінпанелі: натисніть «ввести пароль».',5000);
+      return;
+    }
     UPDATE.checked=true;
     const btn=$('checkUpdateBtn');
     if(btn) btn.disabled=true;
