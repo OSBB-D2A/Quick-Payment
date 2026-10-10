@@ -76,5 +76,5 @@
     "email": "osbb.dontsia@gmail.com",
     "show_phone": true,
     "show_email": true
-  },
+  }
 }
