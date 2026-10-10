@@ -192,7 +192,6 @@ body.android .bank-links{grid-template-columns:repeat(5,1fr)}
 .admin .p-actions{flex-wrap:wrap}
 .admin .btn{padding:10px 12px;font-size:13px}
 .admin p{font-size:12.5px;line-height:1.45;color:var(--muted);margin:6px 0 10px}
-body.loading-link .qr-frame,body.loading-link .bank-links{opacity:.35;transition:opacity .2s}
 .btn.accent{border-color:transparent;color:#fff;background:linear-gradient(135deg,#4f46e5,#7c3aed 60%,#06b6d4);box-shadow:0 12px 24px -14px rgba(79,70,229,.9)}
 .btn.accent:hover{color:#fff;border-color:transparent;transform:translateY(-2px)}
 .btn.danger{color:#f87171;border-color:rgba(248,113,113,.4)}
@@ -1085,7 +1084,7 @@ function initPay(banks){
     }
     let ok;
     if (!(CFG.data && CFG.data.password_set)){
-      ok = await passwordDialog({ title: 'Задати пароль автозбереження', confirm: true, submitText: 'Задати пароль',
+      ok = await passwordDialog({ title: 'Задати пароль адміністратора', confirm: true, submitText: 'Задати пароль',
         text: 'Пароль зберігається на сервері лише у вигляді хеша, а в цьому браузері — тільки ключ для адміністрування. Мінімум 8 символів.',
         onSubmit: async pw => { const r = await api('setup', { password: pw }); if (!r.ok) return r.data.error || 'Не вдалося задати пароль.'; setKey(r.data.token); CFG.data.password_set = true; return null; } });
     } else {
