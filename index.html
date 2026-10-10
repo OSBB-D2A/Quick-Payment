@@ -88,7 +88,7 @@ body.desktop .desktop-only{display:block}
 }
 .qr-frame svg{display:block;width:100%;height:auto}
 #qr-warning{position:absolute;inset:16px;display:flex;align-items:center;justify-content:center;padding:14px;
-  color:#dc2626;font-size:clamp(17px,4vw,24px);font-weight:800;line-height:1.35;text-align:center;overflow-wrap:anywhere}
+  color:#dc2626;font-size:clamp(17px,4vw,24px);font-weight:800;line-height:1.35;text-align:center;white-space:pre-line;overflow-wrap:anywhere}
 #qr-warning[hidden]{display:none!important}
 .qr-text{color:var(--muted);font-size:14px;margin-top:16px;max-width:300px}
 .qr-link{display:inline-block;margin-top:10px;font-size:13px;font-weight:600;color:var(--accent);text-decoration:none;
@@ -776,7 +776,7 @@ function initPurposeUI(){
   const type=document.getElementById('purpose-type'), apt=document.getElementById('apartment-select'), purpose=document.getElementById('purpose');
   if(!type || !apt || !purpose) return;
   type.innerHTML='';
-  const usable=PURPOSES.filter(t=>purposeKind(t)!=='custom');
+  const usable=PURPOSES.filter(t=>!/^Інший платіж/i.test(t));
   (usable.length?usable:[DEFAULT_PURPOSE]).forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;type.appendChild(o);});
   apt.innerHTML='';
   const specify=document.createElement('option'); specify.value='0'; specify.textContent='Вказати'; apt.appendChild(specify);
@@ -1180,7 +1180,7 @@ function initPay(banks){
     let msg = 'Посилання на платіж скопійовано', ms = 1900;
     const job = (async () => {
       if (isDefaultState(st)) return shareUrl();
-      if (STORE.pub.has(k)){ msg = 'Коротке посилання скопійовано'; return shortUrl(STORE.pub.get(k)); }
+      if (STORE.pub.has(k)){ msg = 'Коротке посилання скопійовано'; return shortUrl(STORE.pub.get(k), st.apartment); }
       if (!(ADMIN.on && STORE.loaded)) return shareUrl();
       let code = STORE.pen.get(k) || makeCode(k), why = '';
       if (getKey()){                                      // автозбереження: save.php сам дописує в links.json
