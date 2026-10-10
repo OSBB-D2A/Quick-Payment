@@ -5,7 +5,6 @@
   "admin_email": "osbb.dontsia@gmail.com",
   "site_url": "https://dontsa2a.kyiv.ua/quick-payment/",
   "session_days": 30,
-  "timezone": "Europe/Kyiv",
   "default_account": "main",
   "accounts": [
     {
@@ -58,23 +57,5 @@
   "page": {
     "title": "Швидка оплата — ОСББ «Донця 2А-Ініціатива»",
     "description": "Швидка оплата на рахунки ОСББ «Донця 2А-Ініціатива»"
-  },
-  "invoice": {
-    "title": "РАХУНОК НА ОПЛАТУ",
-    "number_start": 1,
-    "note": "",
-    "show_logo": false
-  },
-  "payee": {
-    "name": "ОБ'ЄДНАННЯ СПІВВЛАСНИКІВ БАГАТОКВАРТИРНОГО БУДИНКУ \"ДОНЦЯ 2А-ІНІЦІАТИВА\"",
-    "iban": "UA123052990000026009025007543",
-    "tax_id": "43352162",
-    "bank": "АТ КБ \"Приватбанк\"",
-    "mfo": "320649",
-    "bank_edrpou": "14360570",
-    "phone": "+380639548523",
-    "email": "osbb.dontsia@gmail.com",
-    "show_phone": true,
-    "show_email": true
   }
 }
