@@ -8,22 +8,16 @@ declare(strict_types=1);
  *   POST ?action=login           пароль → ключ (токен) для цього браузера
  *   POST ?action=whoami          перевірка ключа
  *   POST ?action=logout          видалити ключ цього браузера на сервері
- *   POST ?action=save            дописати скорочення в links.json (потрібен ключ, заголовок X-Key)
  *   POST ?action=reset_request   надіслати на пошту ФОП лист із посиланням для повного скидання ключа
  *   GET/POST ?action=reset       сторінка підтвердження скидання (за посиланням із листа)
  *   POST ?action=visibility      {show_phone?, show_email?} → зберегти в config.php, чи показувати ці поля у звичайному режимі (потрібен ключ)
  *
- * Дані та секрети — у config.php (див. його). Вимоги: PHP 7.4+, права запису на config.php і links.json,
+ * Дані та секрети — у config.php (див. його). Вимоги: PHP 7.4+ та права запису на config.php,
  * працююча функція mail() для листа «Анулювати ключ».
  */
 
 const CONFIG_FILE        = __DIR__ . '/config.php';
-const DATA_FILE          = __DIR__ . '/links.json';
 const CONFIG_GUARD       = "<?php http_response_code(404); exit; ?>\n";   // перший рядок config.php: у браузері файл «порожній»
-const MAX_LINKS          = 5000;
-const CODE_LEN           = 6;
-const ALPHABET           = '23456789abcdefghjkmnpqrstuvwxyz';
-const RESERVED           = ['admin', 'sum', 'amount', 'purpose', 'desc', 'p', 'c'];
 const MIN_PASSWORD       = 8;
 const MAX_PASSWORD       = 256;
 const MAX_SESSIONS       = 20;
@@ -210,6 +204,9 @@ function action_update(): void {
     if (function_exists('opcache_reset')) @opcache_reset();
     if ($errors) fail(500, 'Оновлення виконано частково. Не вдалося записати: ' . implode(', ', $errors) . '. Перевірте права запису.');
     if (!$copied) fail(500, 'В архіві не знайдено файлів для оновлення.');
+    // Старі короткі посилання більше не підтримуються — видаляємо їхні файли під час оновлення.
+    @unlink(__DIR__ . '/links.json');
+    @unlink(__DIR__ . '/links.json.bak');
     respond_json(200, ['ok' => true, 'version' => local_version(), 'files' => $copied]);
 }
 
@@ -417,77 +414,6 @@ function action_reset_confirm(): void {
         . ($site !== '' ? '<a class="b" href="' . htmlspecialchars($site . '?admin', ENT_QUOTES, 'UTF-8') . '">Відкрити сторінку</a>' : ''));
 }
 
-// ───────────────────────── збереження скорочення ─────────────────────────
-function normalize_purpose(string $s): string {
-    $s = preg_replace('/[\x00-\x1F\x7F\x{2028}\x{2029}]+/u', ' ', $s);
-    $s = preg_replace('/\s+/u', ' ', (string)$s);
-    $s = trim((string)$s);
-    if (preg_match('/^.{0,140}/us', $s, $m)) $s = $m[0];      // не більше 140 символів (ліміт стандарту НБУ)
-    return trim($s);
-}
-function gen_code(array $links): string {
-    for ($i = 0; $i < 50; $i++) {
-        $s = '';
-        for ($j = 0; $j < CODE_LEN; $j++) $s .= ALPHABET[random_int(0, strlen(ALPHABET) - 1)];
-        if (!isset($links[$s])) return $s;
-    }
-    fail(500, 'Не вдалося підібрати вільний код');
-}
-
-function action_save(): void {
-    $cfg = cfg_read(); require_auth($cfg);
-    $in = input_json();
-    $sum = isset($in['sum']) ? trim((string)$in['sum']) : '';
-    if ($sum !== '' && (!preg_match('/^\d{1,9}(\.\d{2})?$/', $sum) || (float)$sum <= 0)) fail(400, 'Некоректна сума');
-
-    $account = trim((string)($in['account'] ?? ''));
-    $accounts = is_array($cfg['accounts'] ?? null) ? $cfg['accounts'] : [];
-    $accountData = null;
-    foreach ($accounts as $a) if (is_array($a) && (string)($a['id'] ?? '') === $account) { $accountData = $a; break; }
-    if ($accountData === null && isset($accounts[0]) && is_array($accounts[0])) { $accountData = $accounts[0]; $account = (string)($accountData['id'] ?? ''); }
-    if ($account === '' || !is_array($accountData)) fail(400, 'Не вказано коректний рахунок');
-
-    $rawPurpose = (string)($in['purpose'] ?? '');
-    if (!preg_match('//u', $rawPurpose)) fail(400, 'Призначення має бути в UTF-8');
-    $purpose = normalize_purpose($rawPurpose);
-    if ($purpose === '') fail(400, 'Порожнє призначення');
-
-    $code = (string)($in['code'] ?? '');
-    if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$/', $code) || in_array(strtolower($code), RESERVED, true)) $code = '';
-
-    $fh = @fopen(DATA_FILE, 'c+');
-    if (!$fh) fail(500, 'Немає доступу до links.json (перевірте права запису)');
-    if (!flock($fh, LOCK_EX)) { fclose($fh); fail(500, 'Не вдалося заблокувати links.json'); }
-    $raw = stream_get_contents($fh);
-    $data = trim((string)$raw) === '' ? [] : json_decode((string)$raw, true);
-    if (!is_array($data)) { flock($fh, LOCK_UN); fclose($fh); fail(500, 'links.json пошкоджений — виправте його вручну'); }
-    $links = (isset($data['links']) && is_array($data['links'])) ? $data['links'] : [];
-
-    foreach ($links as $c => $e) {
-        if (!is_array($e)) continue;
-        $es = isset($e['sum']) ? trim((string)$e['sum']) : '';
-        $ep = normalize_purpose((string)($e['purpose'] ?? ''));
-        $ea = (string)($e['account'] ?? ($cfg['default_account'] ?? ''));
-        if ($ea === $account && $es === $sum && $ep === $purpose) {
-            flock($fh, LOCK_UN); fclose($fh);
-            respond_json(200, ['code' => (string)$c, 'created' => false]);
-        }
-    }
-    if (count($links) >= MAX_LINKS) { flock($fh, LOCK_UN); fclose($fh); fail(507, 'Досягнуто ліміт записів'); }
-    if ($code === '' || isset($links[$code])) $code = gen_code($links);
-    $links[$code] = $sum !== '' ? ['account' => $account, 'sum' => $sum, 'purpose' => $purpose] : ['account' => $account, 'purpose' => $purpose];
-    $data['links'] = (object)$links;
-
-    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    if ($json === false) { flock($fh, LOCK_UN); fclose($fh); fail(500, 'Не вдалося сформувати JSON'); }
-    @copy(DATA_FILE, DATA_FILE . '.bak');
-    rewind($fh); ftruncate($fh, 0);
-    $ok = fwrite($fh, $json . "\n") !== false;
-    fflush($fh); flock($fh, LOCK_UN); fclose($fh);
-    if (!$ok) fail(500, 'Не вдалося записати links.json');
-    respond_json(200, ['code' => (string)$code, 'created' => true]);
-}
-
 // ───────────────────────── маршрутизація ─────────────────────────
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $action = (string)($_GET['action'] ?? ($method === 'POST' ? 'save' : ''));
@@ -497,7 +423,6 @@ $routes = [
     'login'         => ['POST', 'action_login'],
     'whoami'        => ['POST', 'action_whoami'],
     'logout'        => ['POST', 'action_logout'],
-    'save'          => ['POST', 'action_save'],
     'reset_request' => ['POST', 'action_reset_request'],
     'visibility'    => ['POST', 'action_set_visibility'],
     'check_update'  => ['POST', 'action_check_update'],
