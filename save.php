@@ -37,8 +37,7 @@ const VERSION_FILE       = __DIR__ . '/VERSION';
 const UPDATE_REPO_OWNER  = 'OSBB-D2A';
 const UPDATE_REPO_NAME   = 'Quick-Payment';
 const UPDATE_BRANCH      = 'main';
-const UPDATE_CODE_FILES  = ['index.html', 'save.php', 'qrcode.php', 'config.example.php', 'apartments.json', 'README.md', 'VERSION', '.gitignore'];
-const UPDATE_DELETE_FILES = ['invoice.php'];
+const UPDATE_CODE_FILES  = ['index.html', 'save.php', 'invoice.php', 'qrcode.php', 'config.example.php', 'apartments.json', 'README.md', 'VERSION', '.gitignore'];
 
 // ───────────────────────── відповіді ─────────────────────────
 function respond_json(int $status, array $data): void {
@@ -193,10 +192,6 @@ function action_update(): void {
         $src = $srcDir . '/' . $name;
         if (!is_file($src)) continue;
         if (@copy($src, __DIR__ . '/' . $name)) $copied[] = $name; else $errors[] = $name;
-    }
-    foreach (UPDATE_DELETE_FILES as $name) {
-        $target = __DIR__ . '/' . $name;
-        if (is_file($target) && !@unlink($target)) $errors[] = $name . ' (видалення)';
     }
     update_remove_tree($tmpDir);
     if (function_exists('opcache_reset')) @opcache_reset();
