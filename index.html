@@ -82,10 +82,14 @@ body.desktop .desktop-only{display:block}
 /* QR */
 .qr-box{display:flex;flex-direction:column;align-items:center;text-align:center;padding:14px 0 4px}
 .qr-frame{
+  position:relative;box-sizing:border-box;aspect-ratio:1;
   background:#fff;padding:16px;border-radius:22px;width:min(100%,290px);
   box-shadow:0 0 0 1px var(--border),0 0 0 6px rgba(99,102,241,.12),0 22px 44px -18px rgba(79,70,229,.55);
 }
 .qr-frame svg{display:block;width:100%;height:auto}
+#qr-warning{position:absolute;inset:16px;display:flex;align-items:center;justify-content:center;padding:14px;
+  color:#dc2626;font-size:clamp(17px,4vw,24px);font-weight:800;line-height:1.35;text-align:center;overflow-wrap:anywhere}
+#qr-warning[hidden]{display:none!important}
 .qr-text{color:var(--muted);font-size:14px;margin-top:16px;max-width:300px}
 .qr-link{display:inline-block;margin-top:10px;font-size:13px;font-weight:600;color:var(--accent);text-decoration:none;
   border-bottom:1px dashed var(--accent)}
@@ -128,9 +132,10 @@ body.android .bank-links{grid-template-columns:repeat(5,1fr)}
 .input textarea{resize:none;overflow:hidden;display:block;line-height:1.35}
 .input select{
   display:block;width:100%;min-height:48px;padding:13px 14px;border-radius:14px;border:1px solid var(--border);
-  background:var(--field);color:var(--text);font:600 15px 'Inter',system-ui,sans-serif;outline:none;
-  -webkit-text-fill-color:var(--text);opacity:1;
+  background:var(--field);color:#0f172a!important;font:600 15px 'Inter',system-ui,sans-serif;outline:none;
+  -webkit-text-fill-color:#0f172a;opacity:1;
 }
+.input select option,.plain-select option,select.btn option{color:#0f172a!important;background:#fff!important;-webkit-text-fill-color:#0f172a}
 .input select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .input input.mono{font-family:var(--mono);font-size:14px}
 .copy-button{
@@ -298,10 +303,6 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
           <div class="input"><select id="apartment-select" class="plain-select" aria-label="Квартира або особовий рахунок"></select></div>
           <p class="hint" id="apartment-hint">Оберіть номер зі списку.</p>
         </div>
-        <div class="field" id="custom-purpose-field" hidden>
-          <label for="custom-purpose">Власне призначення</label>
-          <div class="input"><input id="custom-purpose" type="text" autocomplete="off" maxlength="140" placeholder="Введіть призначення платежу"></div>
-        </div>
         <input id="purpose" type="hidden" value="">
       </div>
       <p class="warn" id="pay-warn" role="status" aria-live="polite" hidden></p>
@@ -341,7 +342,7 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
     <div class="desktop-only">
       <div class="qr-box">
         <div class="qr-frame" role="img" aria-label="QR-код для оплати">
-          <svg id="qr-svg" viewBox="-2 -2 57 57" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><path id="qr-path" fill="#0f172a" d=""/><circle id="qr-logo-bg" fill="#ffffff"/><text id="qr-logo-char" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#0f172a">₴</text></svg>
+          <svg id="qr-svg" viewBox="-2 -2 57 57" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><path id="qr-path" fill="#0f172a" d=""/><circle id="qr-logo-bg" fill="#ffffff"/><text id="qr-logo-char" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#0f172a">₴</text></svg><div id="qr-warning" role="status" aria-live="polite" hidden></div>
         </div>
         <p class="qr-text">Відскануйте QR камерою / банківським додатком.</p>
         <p class="qr-amount" id="qr-amount" hidden></p>
@@ -365,13 +366,13 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
       <div class="input"><textarea id="account-id" class="wrap-field" rows="1" readonly></textarea>
         <button class="copy-button" data-copy-id="account-id" aria-label="Копіювати"></button></div></div>
 
-    <div class="field"><label for="iban">IBAN:</label>
-      <div class="input"><input id="iban" class="mono" type="text" value="" readonly>
-        <button class="copy-button" data-copy-id="iban" aria-label="Копіювати"></button></div></div>
-
     <div class="field"><label for="tax-id">ІПН/ЄДРПОУ (РНОКПП):</label>
       <div class="input"><input id="tax-id" class="mono" type="text" value="" readonly>
         <button class="copy-button" data-copy-id="tax-id" aria-label="Копіювати"></button></div></div>
+
+    <div class="field"><label for="iban">IBAN:</label>
+      <div class="input"><input id="iban" class="mono" type="text" value="" readonly>
+        <button class="copy-button" data-copy-id="iban" aria-label="Копіювати"></button></div></div>
 
 
     <div class="field" id="amount-field" hidden><label for="pay-amount">Сума, ₴:</label>
@@ -561,15 +562,32 @@ function makeQr(url){
 }
 const PAY = Object.assign({ amount: null }, buildPay('', DEFAULT_PURPOSE));   // поточний стан платежу
 const payUrl = () => 'https://' + PAY.path;
+function currentApartment(){
+  const apt=document.getElementById('apartment-select'), field=document.getElementById('apartment-field');
+  if(!apt || !field || field.hidden || !['or','apartment'].includes(purposeKind(document.getElementById('purpose-type')?.value))) return '';
+  return apt.value && apt.value!=='0' ? String(apt.value) : '';
+}
+function apartmentFromPurpose(rawPurpose){
+  const pur=normPurpose(rawPurpose);
+  for(const t of PURPOSES){
+    const k=purposeKind(t);
+    if(k!=='or'&&k!=='apartment') continue;
+    const token=k==='or'?'___':'ХХХ', parts=t.split(token);
+    if(pur.startsWith(parts[0])&&pur.endsWith(parts[1])) return pur.slice(parts[0].length,pur.length-parts[1].length).trim();
+  }
+  return '';
+}
 function payParams(){
   return { a: CURRENT_ACCOUNT !== (ACCOUNTS[0] && ACCOUNTS[0].id) ? CURRENT_ACCOUNT : '',
            sum: PAY.amt ? PAY.amt.payload : '',
+           apt: currentApartment(),
            p: PAY.purpose !== DEFAULT_PURPOSE ? toBase64Url(encodeCp1251(PAY.purpose).bytes) : '' };
 }
 function shareUrl(){
-  const { a, sum, p } = payParams(), q = [];
+  const { a, sum, apt, p } = payParams(), q = [];
   if (a) q.push('a=' + encodeURIComponent(a));
   if (sum) q.push('sum=' + sum);
+  if (apt) q.push('apt=' + encodeURIComponent(apt));
   if (p) q.push('p=' + p);
   return location.href.split(/[?#]/)[0] + (q.length ? '?' + q.join('&') : '');
 }
@@ -703,9 +721,10 @@ async function loadConfig(){
   CURRENT_ACCOUNT = String((d.default_account || ACCOUNTS[0].id));
   if (!ACCOUNTS.some(a => a.id === CURRENT_ACCOUNT)) CURRENT_ACCOUNT = ACCOUNTS[0].id;
   setCurrentAccount(CURRENT_ACCOUNT, false);
-  PURPOSES = Array.isArray(d.purposes) ? d.purposes.map(normPurpose).filter(Boolean) : [];
+  PURPOSES = Array.isArray(d.purposes) ? d.purposes.map(normPurpose).filter(Boolean).filter(t=>!/^Інший платіж/i.test(t)) : [];
   if (!PURPOSES.length) PURPOSES = [DEFAULT_PURPOSE];
-  if (d.default_purpose) DEFAULT_PURPOSE = normPurpose(d.default_purpose) || DEFAULT_PURPOSE;
+  if (d.default_purpose && !/^Інший платіж/i.test(normPurpose(d.default_purpose))) DEFAULT_PURPOSE = normPurpose(d.default_purpose) || DEFAULT_PURPOSE;
+  if (/^Інший платіж/i.test(DEFAULT_PURPOSE)) DEFAULT_PURPOSE = PURPOSES.find(t=>!/^Інший платіж/i.test(t)) || 'Комунальні внески ОСББ';
   Object.assign(PAY, buildPay('', DEFAULT_PURPOSE));
   return d;
 }
@@ -713,48 +732,63 @@ function purposeKind(s){
   const v = String(s || '');
   if (/О\/р\s*___/i.test(v)) return 'or';
   if (/кв\.\s*ХХХ/i.test(v)) return 'apartment';
-  if (/^Інший платіж/i.test(v)) return 'custom';
   return 'none';
 }
-function composePurpose(template, apartment, custom){
+function composePurpose(template, apartment){
   const kind = purposeKind(template);
   if (kind === 'or') return normPurpose(template.replace(/О\/р\s*___/i, 'О/р ' + apartment));
   if (kind === 'apartment') return normPurpose(template.replace(/кв\.\s*ХХХ/i, 'кв. ' + apartment));
-  if (kind === 'custom') return normPurpose(custom || template);
   return normPurpose(template);
 }
-function setPurposeTemplate(template, apartment, custom, emit=true){
+function setPurposeTemplate(template, apartment, emit=true){
   const type=document.getElementById('purpose-type'), apt=document.getElementById('apartment-select');
-  const af=document.getElementById('apartment-field'), cf=document.getElementById('custom-purpose-field');
-  const cp=document.getElementById('custom-purpose'), purpose=document.getElementById('purpose');
+  const af=document.getElementById('apartment-field'), purpose=document.getElementById('purpose');
   if(!type || !purpose) return;
   const t=normPurpose(template || DEFAULT_PURPOSE), kind=purposeKind(t);
   type.value=t;
   af.hidden=!(kind==='or'||kind==='apartment');
-  cf.hidden=kind!=='custom';
-  if((kind==='or'||kind==='apartment') && apartment && [...apt.options].some(o=>o.value===apartment)) apt.value=apartment;
-  if(kind==='custom' && custom!=null) cp.value=custom;
-  purpose.value=composePurpose(t,apt ? apt.value : '',cp ? cp.value : '');
+  if((kind==='or'||kind==='apartment') && apartment && [...apt.options].some(o=>o.value===String(apartment))) apt.value=String(apartment);
+  purpose.value=composePurpose(t,apt ? apt.value : '');
   if(emit) purpose.dispatchEvent(new Event('input',{bubbles:true}));
 }
+function restorePurposeText(rawPurpose, apartmentOverride, emit=false){
+  const purpose=document.getElementById('purpose');
+  const pur=normPurpose(rawPurpose);
+  if(!purpose || !pur) return;
+  const t=PURPOSES.find(x=>{
+    const k=purposeKind(x);
+    if(k==='or'||k==='apartment'){
+      const token=k==='or'?'___':'ХХХ', parts=x.split(token);
+      return pur.startsWith(parts[0]) && pur.endsWith(parts[1]);
+    }
+    return x===pur;
+  });
+  if(t){
+    const k=purposeKind(t), token=k==='or'?'___':'ХХХ', parts=t.split(token);
+    const extracted=(k==='or'||k==='apartment')?pur.slice(parts[0].length,pur.length-parts[1].length).trim():'';
+    setPurposeTemplate(t, apartmentOverride || extracted, emit);
+  }else{
+    purpose.value=pur;
+    if(emit) purpose.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+}
 function initPurposeUI(){
-  const type=document.getElementById('purpose-type'), apt=document.getElementById('apartment-select');
-  const cp=document.getElementById('custom-purpose'), purpose=document.getElementById('purpose');
-  if(!type || !purpose) return;
+  const type=document.getElementById('purpose-type'), apt=document.getElementById('apartment-select'), purpose=document.getElementById('purpose');
+  if(!type || !apt || !purpose) return;
   type.innerHTML='';
-  PURPOSES.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;type.appendChild(o);});
+  const usable=PURPOSES.filter(t=>purposeKind(t)!=='custom');
+  (usable.length?usable:[DEFAULT_PURPOSE]).forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;type.appendChild(o);});
   apt.innerHTML='';
-  const specify=document.createElement('option'); specify.value='0'; specify.textContent='Вказати'; specify.selected=true; apt.appendChild(specify);
+  const specify=document.createElement('option'); specify.value='0'; specify.textContent='Вказати'; apt.appendChild(specify);
   APARTMENTS.filter(v=>String(v)!=='0' && String(v)!=='Вказати').forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;apt.appendChild(o);});
   apt.value='0';
-  const update=()=>{purpose.value=composePurpose(type.value,apt.value,cp.value);purpose.dispatchEvent(new Event('input',{bubbles:true}));};
+  const update=()=>{purpose.value=composePurpose(type.value,apt.value);purpose.dispatchEvent(new Event('input',{bubbles:true}));};
   type.addEventListener('change',()=>{
     const k=purposeKind(type.value);
     document.getElementById('apartment-field').hidden=!(k==='or'||k==='apartment');
-    document.getElementById('custom-purpose-field').hidden=k!=='custom';
     update();
   });
-  apt.addEventListener('change',update); cp.addEventListener('input',update);
+  apt.addEventListener('change',update);
   setPurposeTemplate(DEFAULT_PURPOSE);
 }
 async function loadApartments(){
@@ -863,10 +897,10 @@ function copyLater(promise){                              // Safari вимага
   return promise.then(copyText);
 }
 const pageBase = () => location.href.split(/[?#]/)[0];
-const shortUrl = code => pageBase() + '?' + code;
-const curState = () => ({ account: CURRENT_ACCOUNT, sum: PAY.amt ? PAY.amt.payload : '', purpose: PAY.purpose });
+const shortUrl = (code, apartment='') => pageBase() + '?' + code + (apartment && apartment!=='0' ? '&apt=' + encodeURIComponent(apartment) : '');
+const curState = () => ({ account: CURRENT_ACCOUNT, sum: PAY.amt ? PAY.amt.payload : '', purpose: PAY.purpose, apartment: currentApartment() });
 const isDefaultState = s => s.account === CURRENT_ACCOUNT && !s.sum && s.purpose === DEFAULT_PURPOSE;
-const RESERVED_KEYS = new Set(['admin', 'sum', 'amount', 'purpose', 'desc', 'p', 'c', 'a']);
+const RESERVED_KEYS = new Set(['admin', 'sum', 'amount', 'purpose', 'desc', 'p', 'c', 'a', 'apt']);
 function parseCode(qs){                                   // ?k7f3q  або  ?c=k7f3q
   const ok = s => /^[A-Za-z0-9_-]{3,32}$/.test(s);
   const c = qs.get('c'); if (c && ok(c)) return c;
@@ -998,7 +1032,7 @@ function download(name, mime, content){
 function initPay(banks){
   const $ = id => document.getElementById(id);
   const amountEl = $('amount'), purposeEl = $('purpose'), warnEl = $('pay-warn');
-  const svg = $('qr-svg'), qrPath = $('qr-path'), logoBg = $('qr-logo-bg'), logoChar = $('qr-logo-char');
+  const svg = $('qr-svg'), qrPath = $('qr-path'), logoBg = $('qr-logo-bg'), logoChar = $('qr-logo-char'), qrWarning = $('qr-warning');
   let awaiting = false;               // чекаємо links.json, щоб не затирати ?код в адресному рядку
 
   function drawQr(q){
@@ -1035,13 +1069,23 @@ function initPay(banks){
     if (amountEl.value !== san) amountEl.value = san;
     const r = buildPay(san, purposeEl.value);
     const warns = [];
-    if (!r.amt || !(r.amt.num > 0)) {
+    const kind = purposeKind($('purpose-type').value);
+    const apartmentMissing = (kind === 'or' || kind === 'apartment') && !currentApartment();
+    const validationMessages = [];
+    if (!r.amt || !(r.amt.num > 0)) validationMessages.push('Вкажіть суму');
+    if (apartmentMissing) validationMessages.push('Вкажіть № квартири');
+    if (validationMessages.length) {
       PAY.amt = null; PAY.purpose = r.purpose; PAY.path = r.path; PAY.dropped = r.dropped;
-      warnEl.textContent = 'Вкажіть суму платежу, щоб сформувати QR-код.'; warnEl.hidden = false;
-      qrPath.setAttribute('d', ''); svg.setAttribute('viewBox', '0 0 1 1');
+      const message = validationMessages.join('\n');
+      warnEl.textContent = message; warnEl.hidden = false;
+      if (qrWarning) { qrWarning.textContent = message; qrWarning.hidden = false; }
+      svg.style.visibility = 'hidden';
+      qrPath.setAttribute('d', '');
       $('qr-link').hidden = true; $('copyPayLink').disabled = true; $('amount-field').hidden = true; $('qr-amount').hidden = true;
       syncUrl(); renderAdmin(); return;
     }
+    if (qrWarning) { qrWarning.textContent = ''; qrWarning.hidden = true; }
+    svg.style.visibility = 'visible';
     $('qr-link').hidden = false; $('copyPayLink').disabled = false;
     if (r.dropped.length) warns.push('Символи ' + r.dropped.map(c => '«' + c + '»').join(' ') + ' не підтримуються стандартом QR і будуть пропущені.');
     let q = null;
@@ -1050,7 +1094,9 @@ function initPay(banks){
     warnEl.textContent = warns.join(' '); warnEl.hidden = !warns.length;
     if (!q || !drawQr(q)) {
       if (q) { warnEl.textContent = [warnEl.textContent, 'Генератор QR-коду повернув некоректні дані.'].filter(Boolean).join(' '); warnEl.hidden = false; }
-      return;                       // лишаємо попередній робочий QR
+      if (qrWarning) { qrWarning.textContent = 'Не вдалося сформувати QR-код'; qrWarning.hidden = false; }
+      svg.style.visibility = 'hidden';
+      return;
     }
     PAY.amt = r.amt; PAY.purpose = r.purpose; PAY.path = r.path; PAY.dropped = r.dropped;
     $('qr-link').href = payUrl();
@@ -1075,7 +1121,7 @@ function initPay(banks){
   function syncUrl(){
     if (awaiting) return;
     const st = curState(); let url = shareUrl();
-    if (!isDefaultState(st) && STORE.pub.has(keyOf(st))) url = shortUrl(STORE.pub.get(keyOf(st)));
+    if (!isDefaultState(st) && STORE.pub.has(keyOf(st))) url = shortUrl(STORE.pub.get(keyOf(st)), st.apartment);
     try { history.replaceState(null, '', url); } catch(e){}
   }
   function renderAdmin(){
@@ -1140,14 +1186,14 @@ function initPay(banks){
       if (getKey()){                                      // автозбереження: save.php сам дописує в links.json
         try {
           const r = await saveRemote(st, code);
-          if (r.ok){ code = r.data.code; addPublished(code, st); msg = 'Збережено в links.json ✓ Коротке посилання скопійовано'; return shortUrl(code); }
+          if (r.ok){ code = r.data.code; addPublished(code, st); msg = 'Збережено в links.json ✓ Коротке посилання скопійовано'; return shortUrl(code, st.apartment); }
           if (r.status === 403){ forgetKey(); why = 'Ключ недійсний або анульований — введіть пароль знову. '; }
           else why = 'Автозбереження не вдалося (' + (r.data.error || 'HTTP ' + r.status) + '). ';
         } catch(e){ why = 'Автозбереження недоступне (немає зв\u2019язку зі save.php). '; }
       }
       if (!STORE.pen.has(k)){ STORE.pending[code] = st.sum ? { account: st.account, sum: st.sum, purpose: st.purpose } : { account: st.account, purpose: st.purpose }; savePending(); indexLinks(); }
       msg = why + `Скопійовано ?${code}. Воно запрацює після того, як ви додасте його в links.json (кнопка «Завантажити links.json»)`; ms = 7000;
-      return shortUrl(code);
+      return shortUrl(code, st.apartment);
     })();
     copyLater(job).then(() => { toast(msg, ms); syncUrl(); renderAdmin(); }).catch(() => { toast('Не вдалося скопіювати'); renderAdmin(); });
   });
@@ -1161,7 +1207,7 @@ function initPay(banks){
     const v = e.target.value; e.target.value = '';
     if (!v) return;
     if (v === '__dl__') return downloadLinksJson();
-    copyText(shortUrl(v)).then(() => toast('Коротке посилання скопійовано')).catch(() => toast('Не вдалося скопіювати'));
+    copyText(shortUrl(v, apartmentFromPurpose((STORE.links[v]||{}).purpose))).then(() => toast('Коротке посилання скопійовано')).catch(() => toast('Не вдалося скопіювати'));
   });
   $('copyLongLink').addEventListener('click', () => copyText(shareUrl()).then(() => toast('Повне посилання скопійовано (працює одразу)')).catch(() => toast('Не вдалося скопіювати')));
   $('clearPending').addEventListener('click', () => {
@@ -1295,12 +1341,13 @@ function initPay(banks){
   }
   // Призначення обирається через підготовлений список та, за потреби, квартиру/О/р.
   makeSuggest($('inv-payer'), $('payer-list'), () => (INV && INV.payers) || []);
-  $('resetPay').addEventListener('click', () => { amountEl.value = ''; setPurposeTemplate(DEFAULT_PURPOSE); apply(); });
+  $('resetPay').addEventListener('click', () => { amountEl.value = ''; const apt=$('apartment-select'); if(apt) apt.value='0'; setPurposeTemplate(DEFAULT_PURPOSE); apply(); });
 
-  // Параметри з посилання:  ?k7f3q (скорочення з links.json)  або  ?sum=1500&p=…  (повна форма, працює завжди)
+  // Параметри з посилання: ?код або ?sum=1500&apt=123&p=…
   const qs = new URLSearchParams(location.search);
   initAdminFlag(qs);
   const code = parseCode(qs);
+  const apartmentFromUrl = qs.get('apt') || '';
   if (code){ awaiting = true; document.body.classList.add('loading-link'); }
   else {
     const accountFromUrl = qs.get('a'); if (accountFromUrl && ACCOUNTS.some(a => a.id === accountFromUrl)) setCurrentAccount(accountFromUrl, false);
@@ -1308,27 +1355,10 @@ function initPay(banks){
     let pur = qs.get('purpose') ?? qs.get('desc');
     if (qs.get('p')) { try { pur = decodeCp1251(fromBase64Url(qs.get('p'))); } catch(e){} }
     if (sum) amountEl.value = sanitizeAmount(sum);
-    if (pur && normPurpose(pur)) {
-      pur=normPurpose(pur);
-      const t=PURPOSES.find(x => {
-        const k=purposeKind(x);
-        if(k==='or' || k==='apartment'){
-          const token=k==='or' ? '___' : 'ХХХ';
-          const parts=x.split(token);
-          return pur.startsWith(parts[0]) && pur.endsWith(parts[1]);
-        }
-        return x===pur;
-      });
-      if(t){
-        const k=purposeKind(t);
-        const token=k==='or' ? '___' : 'ХХХ';
-        const parts=t.split(token);
-        const m=(k==='or'||k==='apartment') ? pur.slice(parts[0].length, pur.length-parts[1].length).trim() : '';
-        setPurposeTemplate(t,m,null,false);
-      } else {
-        const custom=PURPOSES.find(x=>purposeKind(x)==='custom') || PURPOSES[0];
-        setPurposeTemplate(custom,'',pur,false);
-      }
+    if (pur && normPurpose(pur)) restorePurposeText(pur, apartmentFromUrl, false);
+    else if (apartmentFromUrl) {
+      const apartmentTemplate = PURPOSES.find(x=>['or','apartment'].includes(purposeKind(x)));
+      if(apartmentTemplate) setPurposeTemplate(apartmentTemplate, apartmentFromUrl, false);
     }
   }
   apply();                            // одразу показуємо QR (стандартний або з параметрів)
@@ -1336,7 +1366,7 @@ function initPay(banks){
     if (code){
       awaiting = false; document.body.classList.remove('loading-link');
       const e = lookupCode(code);     // немає в файлі → лишаються стандартні дані
-      if (e){ const c = canonEntry(e); if (c.account && ACCOUNTS.some(a => a.id === c.account)) setCurrentAccount(c.account, false); amountEl.value = c.sum; purposeEl.value = c.purpose; }
+      if (e){ const c = canonEntry(e); if (c.account && ACCOUNTS.some(a => a.id === c.account)) setCurrentAccount(c.account, false); amountEl.value = c.sum; restorePurposeText(c.purpose, apartmentFromUrl || apartmentFromPurpose(c.purpose), false); }
     }
     if (ADMIN.on && getKey()){                            // ключ міг бути анульований (скидання через пошту) або прострочений
       const w = await api('whoami', {}, { auth: true }).catch(() => null);
