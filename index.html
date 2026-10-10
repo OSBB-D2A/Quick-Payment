@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Швидка оплата — ОСББ «Донця 2А-Ініціатива»</title>
 <meta name="description" content="Швидка оплата на рахунки ОСББ «Донця 2А-Ініціатива»">
-<meta name="theme-color" content="#0a0e1a">
+<meta name="theme-color" content="#151d2e">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
@@ -22,10 +22,10 @@
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
 :root[data-theme="dark"]{
-  --bg:#0a0e1a; --card:rgba(20,26,45,.72); --solid:#141a2d; --border:rgba(255,255,255,.09);
-  --text:#e8ecf7; --muted:#8b96b3; --accent:#818cf8; --accent-soft:rgba(129,140,248,.15);
-  --field:rgba(255,255,255,.045); --shadow:0 24px 60px -24px rgba(0,0,0,.65);
-  --blob1:#4338ca; --blob2:#0e7490; --blob3:#86198f;
+  --bg:#151d2e; --card:rgba(34,44,68,.82); --solid:#202b42; --border:rgba(220,230,255,.13);
+  --text:#f0f4ff; --muted:#a7b4ce; --accent:#a5b4fc; --accent-soft:rgba(165,180,252,.18);
+  --field:rgba(255,255,255,.065); --shadow:0 24px 60px -24px rgba(0,0,0,.48);
+  --blob1:#5554bb; --blob2:#167c91; --blob3:#984b9e;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 [hidden]{display:none!important}
@@ -172,6 +172,9 @@ body.android .bank-links{grid-template-columns:repeat(5,1fr)}
 .p-actions{display:flex;gap:10px;margin:2px 0 4px}
 .p-actions .btn{flex:1 1 auto}
 .p-actions .btn.narrow{flex:0 0 auto}
+.update-tools{margin:12px 0 4px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--field)}
+.update-status{font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.update-tools .p-actions{margin:0}
 .qr-amount{margin-top:14px;font-size:15px;color:var(--muted)}
 .qr-amount b{color:var(--text);font-size:18px}
 @media (max-width:480px){.p-grid{grid-template-columns:1fr}}
@@ -315,6 +318,13 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
       <div class="admin" id="admin-box" hidden>
         <div class="admin-head"><b>Режим адміністратора</b><span><button type="button" class="link-btn" id="keyBtn"></button> · <button type="button" class="link-btn" id="adminOff">вимкнути</button></span></div>
         <p id="admin-info"></p>
+        <div class="update-tools">
+          <div id="update-status" class="update-status">Версія сторінки: перевіряється…</div>
+          <div class="p-actions">
+            <button type="button" class="btn narrow" id="checkUpdateBtn">Перевірити оновлення</button>
+            <button type="button" class="btn accent narrow" id="installUpdateBtn" hidden>Оновити</button>
+          </div>
+        </div>
         <div class="field"><label for="inv-payer">Платник <span class="opt">(необов'язково)</span></label>
           <div class="input"><input id="inv-payer" type="text" autocomplete="off" maxlength="140" placeholder="Наприклад: ФОП Іванов І.І." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="payer-list">
             <ul class="suggest" id="payer-list" role="listbox" aria-label="Платники" hidden></ul></div></div>
@@ -577,7 +587,8 @@ function apartmentFromPurpose(rawPurpose){
     const k=purposeKind(t);
     if(k!=='or'&&k!=='apartment') continue;
     const token=k==='or'?'___':'ХХХ', parts=t.split(token);
-    if(pur.startsWith(parts[0])&&pur.endsWith(parts[1])) return pur.slice(parts[0].length,pur.length-parts[1].length).trim();
+    const lowerPur=pur.toLocaleLowerCase('uk'), lowerStart=parts[0].toLocaleLowerCase('uk'), lowerEnd=parts[1].toLocaleLowerCase('uk');
+    if(lowerPur.startsWith(lowerStart)&&lowerPur.endsWith(lowerEnd)) return pur.slice(parts[0].length,pur.length-parts[1].length).trim();
   }
   return '';
 }
@@ -753,13 +764,15 @@ function setPurposeTemplate(template, apartment, emit=true){
   af.hidden=!(kind==='or'||kind==='apartment');
   if((kind==='or'||kind==='apartment') && apt){
     const requested=String(apartment || '').trim();
-    if(requested && ![...apt.options].some(o=>o.value===requested)){
+    if(requested && ![...apt.options].some(o=>String(o.value).trim()===requested)){
       const option=document.createElement('option');
       option.value=requested; option.textContent=requested;
       apt.appendChild(option);
     }
-    if(requested) apt.value=requested;
-    else if(!apt.value) apt.value='0';
+    if(requested){
+      const selected=[...apt.options].find(o=>String(o.value).trim()===requested);
+      if(selected){ apt.value=selected.value; selected.selected=true; }
+    } else if(!apt.value) apt.value='0';
   }
   purpose.value=composePurpose(t,apt ? apt.value : '');
   if(emit) purpose.dispatchEvent(new Event('input',{bubbles:true}));
@@ -772,7 +785,8 @@ function restorePurposeText(rawPurpose, apartmentOverride, emit=false){
     const k=purposeKind(x);
     if(k==='or'||k==='apartment'){
       const token=k==='or'?'___':'ХХХ', parts=x.split(token);
-      return pur.startsWith(parts[0]) && pur.endsWith(parts[1]);
+      const lowerPur=pur.toLocaleLowerCase('uk'), lowerStart=parts[0].toLocaleLowerCase('uk'), lowerEnd=parts[1].toLocaleLowerCase('uk');
+      return lowerPur.startsWith(lowerStart) && lowerPur.endsWith(lowerEnd);
     }
     return x===pur;
   });
@@ -1144,6 +1158,57 @@ function initPay(banks){
     if (!isDefaultState(st) && STORE.pub.has(keyOf(st))) url = shortUrl(STORE.pub.get(keyOf(st)), st.apartment);
     try { history.replaceState(null, '', url); } catch(e){}
   }
+  const UPDATE = { checked:false, busy:false, available:false, latest:'' };
+  function renderUpdateStatus(){
+    const status=$('update-status'), install=$('installUpdateBtn');
+    if(!status || !install) return;
+    const current=String((CFG.data && CFG.data.version) || '0.0.0');
+    status.textContent=UPDATE.busy ? 'Встановлення оновлення…'
+      : UPDATE.available ? `Доступна версія v${UPDATE.latest} (поточна v${current})`
+      : `Версія сторінки: v${current}`;
+    install.hidden=!UPDATE.available;
+    install.disabled=UPDATE.busy;
+  }
+  async function checkForUpdate(silent=false){
+    if(!getKey()) return;
+    UPDATE.checked=true;
+    const btn=$('checkUpdateBtn');
+    if(btn) btn.disabled=true;
+    try{
+      const r=await api('check_update',{}, {auth:true,timeout:12000});
+      if(!r.ok || !r.data || !r.data.ok){
+        if(!silent) toast((r.data && r.data.error)||'Не вдалося перевірити оновлення',5000);
+        return;
+      }
+      UPDATE.latest=String(r.data.latest||'');
+      UPDATE.available=!!r.data.updateAvailable;
+      renderUpdateStatus();
+      if(!silent) toast(UPDATE.available ? 'Доступне оновлення v'+UPDATE.latest : 'Встановлена остання версія',3500);
+    }catch(e){
+      if(!silent) toast('Не вдалося зв’язатися з GitHub',5000);
+    }finally{ if(btn) btn.disabled=false; }
+  }
+  async function runUpdate(){
+    if(!getKey() || UPDATE.busy) return;
+    if(!confirm(`Оновити сторінку до v${UPDATE.latest}?\\n\\nНалаштування config.php, короткі посилання links.json та реєстр рахунків не змінюватимуться.`)) return;
+    UPDATE.busy=true; renderUpdateStatus();
+    const btn=$('checkUpdateBtn'); if(btn) btn.disabled=true;
+    try{
+      const r=await api('update',{}, {auth:true,timeout:90000});
+      if(!r.ok || !r.data || !r.data.ok){
+        UPDATE.busy=false; renderUpdateStatus();
+        toast((r.data && r.data.error)||'Не вдалося встановити оновлення',6000); return;
+      }
+      toast('Оновлено до v'+r.data.version+' — перезавантаження…',3000);
+      setTimeout(()=>location.reload(),1200);
+    }catch(e){
+      UPDATE.busy=false; renderUpdateStatus();
+      toast('Немає зв’язку із сервером оновлень',5000);
+    }finally{ if(btn) btn.disabled=false; }
+  }
+  $('checkUpdateBtn').addEventListener('click',()=>checkForUpdate(false));
+  $('installUpdateBtn').addEventListener('click',runUpdate);
+
   function renderAdmin(){
     const box = $('admin-box'); box.hidden = !ADMIN.on; if (!ADMIN.on) return;
     const pub = Object.keys(STORE.links).length, pen = Object.keys(STORE.pending).length, st = curState(), k = keyOf(st);
@@ -1163,6 +1228,8 @@ function initPay(banks){
     $('annulBtn').hidden = !pwSet;
     $('clearPending').hidden = !pen;
     renderLinksSelect();
+    renderUpdateStatus();
+    if(hasKey && !UPDATE.checked && !UPDATE.busy) checkForUpdate(true);
   }
   const fmtGrn = amt => { const n = Number(amt); return (isNaN(n) ? amt : n.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) + ' грн'; };
   function renderInvoiceSelect(){                          // спадний перелік рахунків за останні 30 днів + «Реєстр (CSV)» останнім пунктом
