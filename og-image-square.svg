@@ -19,7 +19,7 @@
  <rect x="151" y="112" width="35" height="35" rx="5" fill="#246b3c"/>
  <path d="M0 109 125 0l125 109" fill="none" stroke="#e7f6d7" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
-<text x="315" y="385" text-anchor="middle" font-family="Arial,sans-serif" font-size="33" font-weight="700" fill="#fff">ОСББ «Донця 2А»</text>
+<text x="315" y="385" text-anchor="middle" font-family="Arial,sans-serif" font-size="40" font-weight="700" fill="#fff">Донця 2А</text>
 <text x="315" y="432" text-anchor="middle" font-family="Arial,sans-serif" font-size="24" fill="#e6f5db">ІНІЦІАТИВА</text>
 <rect x="145" y="478" width="340" height="58" rx="29" fill="#f4ffe9" fill-opacity=".15" stroke="#e0f4cf" stroke-opacity=".65"/>
 <text x="315" y="514" text-anchor="middle" font-family="Arial,sans-serif" font-size="20" font-weight="600" fill="#fff">Швидка оплата внесків</text>
