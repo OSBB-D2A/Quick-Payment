@@ -575,7 +575,7 @@ function payParams(){
   return { a: CURRENT_ACCOUNT !== (ACCOUNTS[0] && ACCOUNTS[0].id) ? CURRENT_ACCOUNT : '',
            sum: PAY.amt ? PAY.amt.payload : '',
            apt: currentApartment(),
-           p: CURRENT_PURPOSE_ID && CURRENT_PURPOSE_ID !== DEFAULT_PURPOSE_ID ? CURRENT_PURPOSE_ID : '' };
+           p: CURRENT_PURPOSE_ID || DEFAULT_PURPOSE_ID || '' };
 }
 function shareUrl(){
   const { a, sum, apt, p } = payParams(), q = [];
