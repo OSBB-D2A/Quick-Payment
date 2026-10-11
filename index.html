@@ -487,6 +487,9 @@ let ACCOUNTS = [];
 let CURRENT_ACCOUNT = '';
 let DEFAULT_PURPOSE = 'Оплата за послуги';         // перезаписується з config.php
 let PURPOSES = [];
+let PURPOSE_ITEMS = [];
+let DEFAULT_PURPOSE_ID = '';
+let CURRENT_PURPOSE_ID = '';
 let APARTMENTS = [];
 const MAX_PURPOSE = 140;          // ліміт стандарту (символів)
 const MAX_QR_MODULES = 77;        // версія 15 — максимум для формату 002
@@ -565,20 +568,14 @@ function currentApartment(){
 }
 function apartmentFromPurpose(rawPurpose){
   const pur=normPurpose(rawPurpose);
-  for(const t of PURPOSES){
-    const k=purposeKind(t);
-    if(k!=='or'&&k!=='apartment') continue;
-    const token=k==='or'?'___':'ХХХ', parts=t.split(token);
-    const lowerPur=pur.toLocaleLowerCase('uk'), lowerStart=parts[0].toLocaleLowerCase('uk'), lowerEnd=parts[1].toLocaleLowerCase('uk');
-    if(lowerPur.startsWith(lowerStart)&&lowerPur.endsWith(lowerEnd)) return pur.slice(parts[0].length,pur.length-parts[1].length).trim();
-  }
-  return '';
+  const m=pur.match(/о\/р\s*(\S+)\s*$/i);
+  return m ? m[1] : '';
 }
 function payParams(){
   return { a: CURRENT_ACCOUNT !== (ACCOUNTS[0] && ACCOUNTS[0].id) ? CURRENT_ACCOUNT : '',
            sum: PAY.amt ? PAY.amt.payload : '',
            apt: currentApartment(),
-           p: PAY.purpose !== DEFAULT_PURPOSE ? toBase64Url(encodeCp1251(PAY.purpose).bytes) : '' };
+           p: CURRENT_PURPOSE_ID && CURRENT_PURPOSE_ID !== DEFAULT_PURPOSE_ID ? CURRENT_PURPOSE_ID : '' };
 }
 function shareUrl(){
   const { a, sum, apt, p } = payParams(), q = [];
@@ -648,22 +645,44 @@ async function loadConfig(){
 }
 function purposeKind(s){
   const v = String(s || '');
-  if (/О\/р\s*___/i.test(v)) return 'or';
   if (/кв\.\s*ХХХ/i.test(v)) return 'apartment';
-  return 'none';
+  // Особовий рахунок автоматично додається до кожного призначення.
+  return 'or';
 }
 function composePurpose(template, apartment){
-  const kind = purposeKind(template);
-  if (kind === 'or') return normPurpose(template.replace(/О\/р\s*___/i, 'о/р ' + apartment));
-  if (kind === 'apartment') return normPurpose(template.replace(/кв\.\s*ХХХ/i, 'кв. ' + apartment));
-  return normPurpose(template);
+  const t = normPurpose(template);
+  const apt = String(apartment || '').trim();
+  if (/О\/р\s*___/i.test(t)) return normPurpose(t.replace(/О\/р\s*___/i, apt ? 'о/р ' + apt : ''));
+  if (/кв\.\s*ХХХ/i.test(t)) return normPurpose(t.replace(/кв\.\s*ХХХ/i, apt ? 'кв. ' + apt : ''));
+  if (!apt) return t.replace(/[,;:]\s*$/,'').trim();
+  if (/(?:,\s*)?о\/р\s*\d+\s*$/i.test(t)) return normPurpose(t.replace(/(?:,\s*)?о\/р\s*\d+\s*$/i, ', о/р ' + apt));
+  return normPurpose(t + ', о/р ' + apt);
 }
-function setPurposeTemplate(template, apartment, emit=true){
+function purposeItemsForAccount(a){
+  const accounts = Array.isArray(CFG.data && CFG.data.accounts) ? CFG.data.accounts : [];
+  const accountIndex = Math.max(0, accounts.findIndex(x => x && String(x.id) === String(a.id)));
+  const source = Array.isArray(a.purposes) ? a.purposes : [];
+  return source.map((item, i) => {
+    if (typeof item === 'string') return { id: String((accountIndex + 1) * 100 + i + 1), text: normPurpose(item), enabled: true };
+    if (!item || typeof item !== 'object') return null;
+    const text = normPurpose(item.text || item.purpose || item.label || '');
+    const id = String(item.id ?? item.number ?? ((accountIndex + 1) * 100 + i + 1));
+    const flag = item.enabled ?? item.on ?? true;
+    const isOn = flag !== false && flag !== 0 && !['off','false','0','no'].includes(String(flag).toLowerCase());
+    return text && isOn ? { id, text, enabled: true } : null;
+  }).filter(x => x && x.text);
+}
+function purposeItemForText(text){
+  return PURPOSE_ITEMS.find(x => x.text === text) || null;
+}
+function setPurposeTemplate(template, apartment, emit=true, templateId=''){
   const type=document.getElementById('purpose-type'), apt=document.getElementById('apartment-select');
   const af=document.getElementById('apartment-field'), purpose=document.getElementById('purpose');
   if(!type || !purpose) return;
   const t=normPurpose(template || DEFAULT_PURPOSE), kind=purposeKind(t);
   type.value=t;
+  const item = templateId ? PURPOSE_ITEMS.find(x => String(x.id) === String(templateId)) : purposeItemForText(t);
+  CURRENT_PURPOSE_ID = item ? String(item.id) : '';
   af.hidden=!(kind==='or'||kind==='apartment');
   if((kind==='or'||kind==='apartment') && apt){
     const requested=String(apartment || '').trim();
@@ -685,18 +704,15 @@ function restorePurposeText(rawPurpose, apartmentOverride, emit=false){
   const pur=normPurpose(rawPurpose);
   if(!purpose || !pur) return;
   const t=PURPOSES.find(x=>{
-    const k=purposeKind(x);
-    if(k==='or'||k==='apartment'){
-      const token=k==='or'?'___':'ХХХ', parts=x.split(token);
-      const lowerPur=pur.toLocaleLowerCase('uk'), lowerStart=parts[0].toLocaleLowerCase('uk'), lowerEnd=parts[1].toLocaleLowerCase('uk');
-      return lowerPur.startsWith(lowerStart) && lowerPur.endsWith(lowerEnd);
-    }
-    return x===pur;
+    const base=x.replace(/,?\s*о\/р\s*___/i,'').replace(/,?\s*кв\.\s*ХХХ/i,'').trim();
+    const lowerPur=pur.toLocaleLowerCase('uk'), lowerBase=base.toLocaleLowerCase('uk');
+    return lowerPur===lowerBase || lowerPur.startsWith(lowerBase + ', о/р ');
   });
   if(t){
-    const k=purposeKind(t), token=k==='or'?'___':'ХХХ', parts=t.split(token);
-    const extracted=(k==='or'||k==='apartment')?pur.slice(parts[0].length,pur.length-parts[1].length).trim():'';
-    setPurposeTemplate(t, apartmentOverride || extracted, emit);
+    const m=pur.match(/,\s*о\/р\s*(\S+)\s*$/i) || pur.match(/о\/р\s*(\S+)\s*$/i);
+    const extracted=m ? m[1] : '';
+    const item=purposeItemForText(t);
+    setPurposeTemplate(t, apartmentOverride || extracted, emit, item && item.id);
   }else{
     purpose.value=pur;
     if(emit) purpose.dispatchEvent(new Event('input',{bubbles:true}));
@@ -713,6 +729,8 @@ function initPurposeUI(){
   const update=()=>{purpose.value=composePurpose(type.value,apt.value);purpose.dispatchEvent(new Event('input',{bubbles:true}));};
   type.addEventListener('change',()=>{
     const k=purposeKind(type.value);
+    const item=purposeItemForText(type.value);
+    CURRENT_PURPOSE_ID = item ? String(item.id) : '';
     document.getElementById('apartment-field').hidden=!(k==='or'||k==='apartment');
     update();
   });
@@ -733,36 +751,47 @@ async function loadApartments(){
   }catch(e){APARTMENTS=[];}
 }
 function accountPurposeList(a){
-  const clean = list => (Array.isArray(list) ? list : []).map(normPurpose).filter(Boolean);
-  if (Array.isArray(a.purposes)) return clean(a.purposes);
-  // Перехідний режим для старого config.php: основний рахунок бачить лише стандартне призначення,
-  // інші рахунки — решту старих шаблонів.
-  const legacy = clean(CFG.data && CFG.data.purposes);
+  if (Array.isArray(a.purposes)) return purposeItemsForAccount(a);
+  // Перехідний режим для старого config.php.
+  const legacy = (Array.isArray(CFG.data && CFG.data.purposes) ? CFG.data.purposes : []).map(normPurpose).filter(Boolean);
   const legacyDefault = normPurpose((CFG.data && CFG.data.default_purpose) || legacy[0] || '');
-  if (a.id === String((CFG.data && CFG.data.default_account) || '')) return legacyDefault ? [legacyDefault] : legacy.slice(0,1);
-  if (a.id === 'dobrovilnii' || /добровіль/i.test(String(a.label || ''))) {
+  let list;
+  if (a.id === String((CFG.data && CFG.data.default_account) || '')) list = legacyDefault ? [legacyDefault] : legacy.slice(0,1);
+  else if (a.id === 'dobrovilnii' || /добровіль/i.test(String(a.label || ''))) {
     const voluntary = legacy.filter(p => /^(Добровільний внесок|Інший платіж)/i.test(p));
-    if (voluntary.length) return voluntary;
+    list = voluntary.length ? voluntary : legacy;
+  } else {
+    const others = legacy.filter(p => p !== legacyDefault);
+    list = others.length ? others : [normPurpose(a.default_purpose)].filter(Boolean);
   }
-  const others = legacy.filter(p => p !== legacyDefault);
-  return others.length ? others : clean([a.default_purpose]);
+  const accounts = Array.isArray(CFG.data && CFG.data.accounts) ? CFG.data.accounts : [];
+  const accountIndex = Math.max(0, accounts.findIndex(x => x && String(x.id) === String(a.id)));
+  return list.map((text, i) => ({ id: String((accountIndex + 1) * 100 + i + 1), text, enabled: true }));
 }
 function refreshPurposeOptions(){
   const type = document.getElementById('purpose-type');
   if (!type) return;
   type.innerHTML = '';
-  (PURPOSES.length ? PURPOSES : [DEFAULT_PURPOSE]).forEach(t => {
-    const o = document.createElement('option'); o.value = t; o.textContent = t; type.appendChild(o);
+  (PURPOSE_ITEMS.length ? PURPOSE_ITEMS : [{id:'', text:DEFAULT_PURPOSE}]).forEach(item => {
+    const o = document.createElement('option'); o.value = item.text; o.textContent = item.text; type.appendChild(o);
   });
 }
 function setCurrentAccount(id, resetPurpose = true){
   const a = ACCOUNTS.find(x => x.id === id) || ACCOUNTS[0];
   if (!a) return;
   CURRENT_ACCOUNT = a.id;
-  PURPOSES = accountPurposeList(a);
-  if (!PURPOSES.length) PURPOSES = [normPurpose(a.default_purpose) || 'Оплата за послуги'];
+  PURPOSE_ITEMS = accountPurposeList(a);
+  PURPOSES = PURPOSE_ITEMS.map(x => x.text);
+  if (!PURPOSES.length) {
+    DEFAULT_PURPOSE = normPurpose(a.default_purpose) || 'Оплата за послуги';
+    PURPOSE_ITEMS = [{id:'', text:DEFAULT_PURPOSE, enabled:true}];
+    PURPOSES = [DEFAULT_PURPOSE];
+  }
   DEFAULT_PURPOSE = normPurpose(a.default_purpose || ((CFG.data && CFG.data.default_purpose) && a.id === CFG.data.default_account ? CFG.data.default_purpose : '') || PURPOSES[0]);
   if (!PURPOSES.includes(DEFAULT_PURPOSE)) DEFAULT_PURPOSE = PURPOSES[0];
+  const defaultItem = purposeItemForText(DEFAULT_PURPOSE) || PURPOSE_ITEMS[0];
+  DEFAULT_PURPOSE_ID = defaultItem ? String(defaultItem.id) : '';
+  CURRENT_PURPOSE_ID = DEFAULT_PURPOSE_ID;
   PAYEE = { name: String(a.name), iban: String(a.iban).replace(/\s/g,''), taxId: String(a.tax_id || ''), id: a.id };
   const sel = document.getElementById('account-select');
   if (sel) sel.value = a.id;
@@ -1140,7 +1169,7 @@ function initPay(banks){
   });
   $('resetPay').addEventListener('click', () => { amountEl.value = ''; const apt=$('apartment-select'); if(apt) apt.value='0'; setPurposeTemplate(DEFAULT_PURPOSE); apply(); });
 
-  // Параметри довгого посилання: ?sum=1500&apt=123&p=…
+  // Параметри посилання: ?sum=1500&apt=123&p=номер_шаблону
   const qs = new URLSearchParams(location.search);
   initAdminFlag(qs);
   const apartmentFromUrl = qs.get('apt') || '';
@@ -1148,7 +1177,14 @@ function initPay(banks){
   if (accountFromUrl && ACCOUNTS.some(a => a.id === accountFromUrl)) setCurrentAccount(accountFromUrl, true);
   const sum = qs.get('sum') ?? qs.get('amount');
   let pur = qs.get('purpose') ?? qs.get('desc');
-  if (qs.get('p')) { try { pur = decodeCp1251(fromBase64Url(qs.get('p'))); } catch(e){} }
+  const purposeParam = qs.get('p') || '';
+  if (purposeParam && /^\d+$/.test(purposeParam)) {
+    const item = PURPOSE_ITEMS.find(x => String(x.id) === purposeParam);
+    if (item) setPurposeTemplate(item.text, apartmentFromUrl, false, item.id);
+  } else if (purposeParam) {
+    // Сумісність зі старими посиланнями, де p містив Base64 тексту призначення.
+    try { pur = decodeCp1251(fromBase64Url(purposeParam)); } catch(e){}
+  }
   if (sum) amountEl.value = sanitizeAmount(sum);
   if (pur && normPurpose(pur)) restorePurposeText(pur, apartmentFromUrl, false);
   if (apartmentFromUrl && !['or','apartment'].includes(purposeKind($('purpose-type').value))) {
