@@ -651,7 +651,8 @@ function purposeKind(s){
 }
 function composePurpose(template, apartment){
   const t = normPurpose(template);
-  const apt = String(apartment || '').trim();
+  const rawApartment = String(apartment || '').trim();
+  const apt = rawApartment === '0' || rawApartment === 'Вказати' ? '' : rawApartment;
   if (/О\/р\s*___/i.test(t)) return normPurpose(t.replace(/О\/р\s*___/i, apt ? 'о/р ' + apt : ''));
   if (/кв\.\s*ХХХ/i.test(t)) return normPurpose(t.replace(/кв\.\s*ХХХ/i, apt ? 'кв. ' + apt : ''));
   if (!apt) return t.replace(/[,;:]\s*$/,'').trim();
