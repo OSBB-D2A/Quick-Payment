@@ -482,6 +482,7 @@ function detectPlatform(){
 
 // ---------- Платіжний QR за стандартом НБУ (формат 002, кодування Win-1251) ----------
 let PAYEE = { name: '', iban: '', taxId: '', id: '' }; // поточний рахунок
+const CFG = { data: null, loaded: false };
 let ACCOUNTS = [];
 let CURRENT_ACCOUNT = '';
 let DEFAULT_PURPOSE = 'Оплата за послуги';         // перезаписується з config.php
