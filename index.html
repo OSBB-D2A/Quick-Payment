@@ -653,11 +653,12 @@ function composePurpose(template, apartment){
   const t = normPurpose(template);
   const rawApartment = String(apartment || '').trim();
   const apt = rawApartment === '0' || rawApartment === 'Вказати' ? '' : rawApartment;
-  if (/О\/р\s*___/i.test(t)) return normPurpose(t.replace(/О\/р\s*___/i, apt ? 'о/р ' + apt : ''));
-  if (/кв\.\s*ХХХ/i.test(t)) return normPurpose(t.replace(/кв\.\s*ХХХ/i, apt ? 'кв. ' + apt : ''));
-  if (!apt) return t.replace(/[,;:]\s*$/,'').trim();
-  if (/(?:,\s*)?о\/р\s*\d+\s*$/i.test(t)) return normPurpose(t.replace(/(?:,\s*)?о\/р\s*\d+\s*$/i, ', о/р ' + apt));
-  return normPurpose(t + ', о/р ' + apt);
+  let base = t;
+  if (/О\/р\s*___/i.test(base)) base = base.replace(/,?\s*О\/р\s*___/i, apt ? ', о/р ' + apt : '');
+  else if (/кв\.\s*ХХХ/i.test(base)) base = base.replace(/кв\.\s*ХХХ/i, apt ? 'кв. ' + apt : '');
+  if (!apt) return base.replace(/[,;:]\s*$/,'').trim();
+  if (/(?:,\s*)?о\/р\s*\d+\s*$/i.test(base)) return normPurpose(base.replace(/(?:,\s*)?о\/р\s*\d+\s*$/i, ', о/р ' + apt));
+  return normPurpose(base + ', о/р ' + apt);
 }
 function purposeItemsForAccount(a){
   const accounts = Array.isArray(CFG.data && CFG.data.accounts) ? CFG.data.accounts : [];
