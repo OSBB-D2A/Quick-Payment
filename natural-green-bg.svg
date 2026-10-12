@@ -1,22 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1200" preserveAspectRatio="xMidYMid slice">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1200" preserveAspectRatio="xMidYMid slice">
 <defs>
- <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4d9a55" stop-opacity=".18"/><stop offset="1" stop-color="#b6d98c" stop-opacity=".04"/></linearGradient>
- <linearGradient id="leaf2" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#1d6a3b" stop-opacity=".12"/><stop offset="1" stop-color="#91c66b" stop-opacity=".09"/></linearGradient>
+  <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f7fff0"/><stop offset=".48" stop-color="#e5f4d9"/><stop offset="1" stop-color="#c4e4a8"/></linearGradient>
+  <linearGradient id="leafA" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d9f1a9"/><stop offset=".34" stop-color="#78bd4b"/><stop offset=".72" stop-color="#348a35"/><stop offset="1" stop-color="#17602d"/></linearGradient>
+  <linearGradient id="leafB" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#efffc6"/><stop offset=".35" stop-color="#a7d96a"/><stop offset=".72" stop-color="#4eaa45"/><stop offset="1" stop-color="#23743a"/></linearGradient>
+  <linearGradient id="leafC" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b9e778"/><stop offset=".5" stop-color="#5ba94b"/><stop offset="1" stop-color="#205f31"/></linearGradient>
+  <linearGradient id="vein" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f2ffd7" stop-opacity=".82"/><stop offset="1" stop-color="#d6f4a9" stop-opacity=".15"/></linearGradient>
+  <radialGradient id="center"><stop stop-color="#ffffff" stop-opacity=".82"/><stop offset=".7" stop-color="#f8fff1" stop-opacity=".48"/><stop offset="1" stop-color="#f8fff1" stop-opacity=".06"/></radialGradient>
+  <filter id="soft"><feGaussianBlur stdDeviation="20"/></filter>
+  <g id="leaf">
+    <path d="M0 0 C-48 -70 -56 -177 0 -270 C56 -177 48 -70 0 0Z" fill="url(#leafA)"/>
+    <path d="M0 -5 Q-2 -120 0 -262" fill="none" stroke="url(#vein)" stroke-width="3"/>
+    <path d="M0 -56 Q-24 -83 -39 -109 M0 -91 Q25 -121 39 -146 M0 -133 Q-26 -161 -37 -185 M0 -174 Q23 -202 31 -222" fill="none" stroke="#eaffcb" stroke-opacity=".48" stroke-width="2"/>
+    <path d="M0 -56 Q-24 -83 -39 -109 M0 -91 Q25 -121 39 -146 M0 -133 Q-26 -161 -37 -185 M0 -174 Q23 -202 31 -222" fill="none" stroke="#2b7935" stroke-opacity=".35" stroke-width="1" transform="scale(-1 1)"/>
+  </g>
 </defs>
-<rect width="1600" height="1200" fill="#edf5e9" fill-opacity=".18"/>
-<g fill="url(#leaf)" stroke="#5b9d54" stroke-opacity=".12" stroke-width="2">
- <path d="M-80 370C20 150 220 80 420 70 350 270 190 390-80 370Z"/>
- <path d="M40 520C100 300 260 190 440 150 400 360 240 500 40 520Z"/>
- <path d="M-30 660C120 470 300 400 490 390 390 590 190 690-30 660Z"/>
- <path d="M1680 230C1460 60 1280 70 1100 130 1240 300 1460 340 1680 230Z"/>
- <path d="M1640 390C1450 250 1270 260 1100 330 1260 470 1460 490 1640 390Z"/>
- <path d="M1660 590C1460 460 1280 490 1110 560 1290 690 1490 700 1660 590Z"/>
+<rect width="1920" height="1200" fill="url(#base)"/>
+<g opacity=".34" filter="url(#soft)">
+  <ellipse cx="130" cy="230" rx="260" ry="340" fill="#65ad42"/>
+  <ellipse cx="1790" cy="890" rx="280" ry="370" fill="#64aa43"/>
+  <ellipse cx="1700" cy="180" rx="210" ry="260" fill="#b2d987"/>
 </g>
-<g fill="url(#leaf2)" stroke="#2e7946" stroke-opacity=".10" stroke-width="2">
- <path d="M-60 1050C90 820 250 780 450 800 340 1000 150 1100-60 1050Z"/>
- <path d="M1660 1030C1450 830 1290 820 1080 860 1200 1050 1450 1120 1660 1030Z"/>
-</g>
-<g stroke="#4d8d4c" stroke-opacity=".10" stroke-width="3" fill="none">
- <path d="M-60 370Q180 250 420 70M40 520Q220 350 440 150M-30 660Q220 500 490 390M1680 230Q1400 170 1100 130M1640 390Q1400 350 1100 330M1660 590Q1400 560 1110 560"/>
+<!-- Left-side botanical foliage -->
+<g transform="translate(80 650) rotate(-48) scale(1.65)"><use href="#leaf"/></g>
+<g transform="translate(190 410) rotate(-18) scale(1.55)"><use href="#leaf" fill="url(#leafB)"/></g>
+<g transform="translate(10 900) rotate(-68) scale(1.7)"><use href="#leaf"/></g>
+<g transform="translate(320 980) rotate(22) scale(1.35)"><use href="#leaf"/></g>
+<g transform="translate(150 120) rotate(-42) scale(1.25)"><use href="#leaf"/></g>
+<g transform="translate(420 530) rotate(35) scale(1.08)"><use href="#leaf"/></g>
+<!-- Right-side foliage -->
+<g transform="translate(1860 270) rotate(48) scale(1.6)"><use href="#leaf"/></g>
+<g transform="translate(1770 540) rotate(18) scale(1.55)"><use href="#leaf"/></g>
+<g transform="translate(1920 870) rotate(66) scale(1.8)"><use href="#leaf"/></g>
+<g transform="translate(1640 1030) rotate(-22) scale(1.45)"><use href="#leaf"/></g>
+<g transform="translate(1840 80) rotate(42) scale(1.15)"><use href="#leaf"/></g>
+<g transform="translate(1570 690) rotate(-34) scale(1.1)"><use href="#leaf"/></g>
+<!-- Soft light through foliage; keeps the form readable -->
+<rect width="1920" height="1200" fill="url(#center)"/>
+<g fill="#fff" opacity=".22">
+  <circle cx="500" cy="220" r="70"/><circle cx="1420" cy="320" r="95"/><circle cx="1280" cy="900" r="80"/><circle cx="600" cy="1000" r="55"/>
 </g>
 </svg>
