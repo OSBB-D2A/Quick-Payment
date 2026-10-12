@@ -179,8 +179,8 @@ body.android .bank-links{grid-template-columns:repeat(5,1fr)}
 .input input.plain{padding-right:14px}
 .input input.has-suffix{padding-right:40px}
 .input .suffix{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:700;pointer-events:none}
-.p-grid{display:grid;grid-template-columns:170px 1fr;gap:0 12px}
-.p-grid .purpose-type-field{grid-column:1 / -1}
+.p-grid{display:grid;grid-template-columns:1fr;gap:0}
+.p-grid .apartment-field,.p-grid .purpose-type-field,.p-grid .amount-field{grid-column:1 / -1}
 .opt{font-weight:400;opacity:.8}
 .vis-toggle{margin-left:8px}
 .vis-label{display:inline-flex;align-items:center;gap:4px;font-weight:500;font-size:12px;color:var(--muted);cursor:pointer;text-transform:none;letter-spacing:0}
@@ -290,7 +290,7 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
 
   <!-- Профіль -->
   <div class="profile">
-    <img class="avatar" id="p-logo" alt="ОСББ «Донця 2А-Ініціатива»" width="88" height="88" src="data:image/svg+xml,%3Csvg xmlns=%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox=%220 0 88 88%22%3E%3Crect width=%2288%22 height=%2288%22 rx=%2244%22 fill=%22%236366f1%22%2F%3E%3Cpath d=%22M22 42 44 24l22 18v24H52V51H36v15H22z%22 fill=%22white%22%2F%3E%3C%2Fsvg%3E">
+    <img class="avatar" id="p-logo" alt="ОСББ «Донця 2А-Ініціатива»" width="88" height="88" src="profile-logo.svg">
     <div>
       <h1 id="p-name"></h1>
       <p id="p-sub"></p>
@@ -316,14 +316,14 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
     <!-- Параметри платежу (сума / призначення) -->
     <div class="params">
       <div class="p-grid">
-        <div class="field" id="apartment-field" hidden>
+        <div class="field apartment-field" id="apartment-field" hidden>
           <label for="apartment-select">Квартира (о/р)</label>
           <div class="input"><select id="apartment-select" class="plain-select" aria-label="Квартира або особовий рахунок"></select></div>
         </div>
-        <div class="field"><label for="amount">Сума</label>
-          <div class="input"><input id="amount" class="has-suffix" type="text" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="Вкажіть суму" required aria-required="true"><span class="suffix">₴</span></div></div>
         <div class="field purpose-type-field"><label for="purpose-type">Призначення платежу</label>
           <div class="input"><select id="purpose-type" class="plain-select" aria-label="Призначення платежу"></select></div></div>
+        <div class="field amount-field"><label for="amount">Сума</label>
+          <div class="input"><input id="amount" class="has-suffix" type="text" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="Вкажіть суму" required aria-required="true"><span class="suffix">₴</span></div></div>
         <input id="purpose" type="hidden" value="">
       </div>
       <p class="warn" id="pay-warn" role="status" aria-live="polite" hidden></p>
@@ -591,9 +591,11 @@ function apartmentFromPurpose(rawPurpose){
   return m ? m[1] : '';
 }
 function payParams(){
+  const kind = purposeKind(document.getElementById('purpose-type')?.value);
+  const apartment = currentApartment();
   return { a: CURRENT_ACCOUNT !== (ACCOUNTS[0] && ACCOUNTS[0].id) ? CURRENT_ACCOUNT : '',
            sum: PAY.amt ? PAY.amt.payload : '',
-           apt: currentApartment(),
+           apt: apartment || (['or','apartment'].includes(kind) ? 'xxx' : ''),
            p: CURRENT_PURPOSE_ID || DEFAULT_PURPOSE_ID || '' };
 }
 function shareUrl(){
@@ -1193,7 +1195,8 @@ function initPay(banks){
   // Параметри посилання: ?sum=1500&apt=123&p=номер_шаблону
   const qs = new URLSearchParams(location.search);
   initAdminFlag(qs);
-  const apartmentFromUrl = qs.get('apt') || '';
+  const apartmentParam = qs.get('apt') || '';
+  const apartmentFromUrl = apartmentParam.toLowerCase() === 'xxx' ? '' : apartmentParam;
   const accountFromUrl = qs.get('a');
   if (accountFromUrl && ACCOUNTS.some(a => a.id === accountFromUrl)) setCurrentAccount(accountFromUrl, true);
   const sum = qs.get('sum') ?? qs.get('amount');
