@@ -31,7 +31,7 @@ const VERSION_FILE       = __DIR__ . '/VERSION';
 const UPDATE_REPO_OWNER  = 'OSBB-D2A';
 const UPDATE_REPO_NAME   = 'Quick-Payment';
 const UPDATE_BRANCH      = 'main';
-const UPDATE_CODE_FILES  = ['index.html', 'save.php', 'invoice.php', 'qrcode.php', 'config.example.php', 'apartments.json', 'README.md', 'VERSION', '.gitignore'];
+const UPDATE_CODE_FILES  = ['index.html', 'save.php', 'invoice.php', 'qrcode.php', 'config.example.php', 'apartments.json', 'README.md', 'VERSION', 'natural-green-bg.svg', 'profile-logo.svg', '.gitignore'];
 
 // ───────────────────────── відповіді ─────────────────────────
 function respond_json(int $status, array $data): void {
