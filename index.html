@@ -298,14 +298,18 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
     </div>
   </div>
 
-  <!-- Вибір рахунку -->
+  <!-- Вибір рахунку та призначення платежу -->
   <section class="card account-picker">
     <h2>Рахунок для оплати</h2>
-    <div class="field" style="margin-bottom:0">
+    <div class="field">
       <label for="account-select">Оберіть рахунок</label>
       <div class="input">
         <select id="account-select" class="plain-select" aria-label="Рахунок для оплати"></select>
       </div>
+    </div>
+    <div class="field purpose-type-field">
+      <label for="purpose-type">Призначення платежу</label>
+      <div class="input"><select id="purpose-type" class="plain-select" aria-label="Призначення платежу"></select></div>
     </div>
   </section>
 
@@ -320,8 +324,6 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
           <label for="apartment-select">Квартира (о/р)</label>
           <div class="input"><select id="apartment-select" class="plain-select" aria-label="Квартира або особовий рахунок"></select></div>
         </div>
-        <div class="field purpose-type-field"><label for="purpose-type">Призначення платежу</label>
-          <div class="input"><select id="purpose-type" class="plain-select" aria-label="Призначення платежу"></select></div></div>
         <div class="field amount-field"><label for="amount">Сума</label>
           <div class="input"><input id="amount" class="has-suffix" type="text" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="Вкажіть суму" required aria-required="true"><span class="suffix">₴</span></div></div>
         <input id="purpose" type="hidden" value="">
