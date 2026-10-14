@@ -171,6 +171,7 @@ body.android .bank-links{grid-template-columns:repeat(5,1fr)}
 }
 .input select option,.plain-select option,select.btn option{color:#0f172a!important;background:#fff!important;-webkit-text-fill-color:#0f172a}
 .input select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.input select.apartment-missing{border-color:#dc2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.18)!important;background:rgba(220,38,38,.055)!important}
 .input input.mono{font-family:var(--mono);font-size:14px}
 .copy-button{
   position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:10px;
@@ -1084,6 +1085,11 @@ function initPay(banks){
     const warns = [];
     const kind = purposeKind($('purpose-type').value);
     const apartmentMissing = (kind === 'or' || kind === 'apartment') && !currentApartment();
+    const apartmentSelect = $('apartment-select');
+    if (apartmentSelect) {
+      apartmentSelect.classList.toggle('apartment-missing', apartmentMissing);
+      apartmentSelect.setAttribute('aria-invalid', apartmentMissing ? 'true' : 'false');
+    }
     const validationMessages = [];
     if (!r.amt || !(r.amt.num > 0)) validationMessages.push('Вкажіть суму');
     if (apartmentMissing) validationMessages.push('Вкажіть № квартири');
@@ -1095,7 +1101,7 @@ function initPay(banks){
       if (qrWarning) { qrWarning.textContent = message; qrWarning.hidden = false; }
       svg.style.visibility = 'hidden';
       qrPath.setAttribute('d', '');
-      $('qr-link').hidden = true; $('copyPayLink').disabled = true; $('amount-field').hidden = true; $('qr-amount').hidden = true;
+      $('qr-link').hidden = true; $('copyPayLink').disabled = !ADMIN.on; $('amount-field').hidden = true; $('qr-amount').hidden = true;
       syncUrl(); renderAdmin(); return;
     }
     if (qrWarning) { qrWarning.textContent = ''; qrWarning.hidden = true; }
@@ -1224,7 +1230,7 @@ function initPay(banks){
         onSubmit: async pw => { const r = await api('login', { password: pw }); if (!r.ok) return r.data.error || 'Невірний пароль.'; setKey(r.data.token); return null; } });
     }
     renderAdmin(); if (!ok) return;
-    toast('Доступ адміністратора активовано ✓', 3000); renderAdmin();
+    toast('Доступ адміністратора активовано ✓', 3000); renderAdmin(); apply();
   });
   $('annulBtn').addEventListener('click', async () => {
     if (!confirm('Надіслати на пошту ФОП лист із посиланням для повного скидання ключа?\n\nПісля підтвердження за посиланням пароль буде видалено, а всі браузери розлогінено.')) return;
@@ -1239,7 +1245,7 @@ function initPay(banks){
     syncUrl();
     toast(BLOCK.has(key) ? 'Блокування увімкнено ✓' : 'Блокування вимкнено ✕', 2200);
   }));
-  $('adminOff').addEventListener('click', () => { ADMIN.on = false; try { localStorage.removeItem(LS_ADMIN); } catch(e){} applyBlockLocks(); renderAdmin(); });
+  $('adminOff').addEventListener('click', () => { ADMIN.on = false; try { localStorage.removeItem(LS_ADMIN); } catch(e){} applyBlockLocks(); renderAdmin(); apply(); });
   window.addEventListener('osbb-account-change', () => {
     const ev = new Event('input', {bubbles:true});
     amountEl.dispatchEvent(ev);
