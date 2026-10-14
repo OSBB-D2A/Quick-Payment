@@ -1258,7 +1258,11 @@ function initPay(banks){
   const apartmentParam = qs.get('apt') || '';
   const apartmentFromUrl = apartmentParam.toLowerCase() === 'xxx' ? '' : apartmentParam;
   const accountFromUrl = qs.get('a');
-  if (accountFromUrl && ACCOUNTS.some(a => a.id === accountFromUrl)) setCurrentAccount(accountFromUrl, true);
+  // Підтримуємо старі текстові ID рахунків і числові ID для коротких посилань.
+  const accountFromUrlMatch = accountFromUrl ? ACCOUNTS.find((a, i) =>
+    String(a.id) === accountFromUrl || String(a.numeric_id ?? (i + 1)) === accountFromUrl
+  ) : null;
+  if (accountFromUrlMatch) setCurrentAccount(String(accountFromUrlMatch.id), true);
   const sum = qs.get('sum') ?? qs.get('amount');
   const purposeParam = qs.get('p') || '';
   if (purposeParam && /^\d+$/.test(purposeParam)) {
