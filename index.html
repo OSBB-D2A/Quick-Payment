@@ -1254,17 +1254,12 @@ function initPay(banks){
   const accountFromUrl = qs.get('a');
   if (accountFromUrl && ACCOUNTS.some(a => a.id === accountFromUrl)) setCurrentAccount(accountFromUrl, true);
   const sum = qs.get('sum') ?? qs.get('amount');
-  let pur = qs.get('purpose') ?? qs.get('desc');
   const purposeParam = qs.get('p') || '';
   if (purposeParam && /^\d+$/.test(purposeParam)) {
     const item = PURPOSE_ITEMS.find(x => String(x.id) === purposeParam);
     if (item) setPurposeTemplate(item.text, apartmentFromUrl, false, item.id);
-  } else if (purposeParam) {
-    // Сумісність зі старими посиланнями, де p містив Base64 тексту призначення.
-    try { pur = decodeCp1251(fromBase64Url(purposeParam)); } catch(e){}
   }
   if (sum) amountEl.value = sanitizeAmount(sum);
-  if (pur && normPurpose(pur)) restorePurposeText(pur, apartmentFromUrl, false);
   if (apartmentFromUrl && !['or','apartment'].includes(purposeKind($('purpose-type').value))) {
     const apartmentTemplate = PURPOSES.find(x=>['or','apartment'].includes(purposeKind(x)));
     if(apartmentTemplate) setPurposeTemplate(apartmentTemplate, apartmentFromUrl, false);
