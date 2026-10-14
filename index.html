@@ -138,6 +138,13 @@ body.android .bank-links{grid-template-columns:repeat(5,1fr)}
 }
 .pay-btn:hover{transform:translateY(-2px)}
 .pay-btn svg{width:18px;height:18px}
+.bank-prompt{
+  display:flex;justify-content:center;align-items:center;width:100%;
+  margin:0 0 14px;padding:12px 16px;border:0;border-radius:14px;
+  color:#fff;font:600 15px 'Inter',system-ui,sans-serif;text-align:center;
+  background:linear-gradient(135deg,#247a43,#39a65b 60%,#91c95b);
+  box-shadow:0 14px 28px -12px rgba(39,131,75,.38);
+}
 
 /* Fields */
 .field{margin-bottom:14px}
@@ -365,6 +372,7 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
 
     <!-- Mobile: банки -->
     <div class="android-only ios-only">
+      <p class="bank-prompt">Оберіть свій банк:</p>
       <div id="bank-links-container" class="bank-links"></div>
       <p class="hint">Не знайшли вашого банку?<br>Натисніть кнопку нижче або внесіть реквізити вручну</p>
       <button id="universal-payment-button" type="button" class="pay-btn">
@@ -592,20 +600,38 @@ function apartmentFromPurpose(rawPurpose){
   const m=pur.match(/о\/р\s*(\S+)\s*$/i);
   return m ? m[1] : '';
 }
+// Параметри блокування: p — рахунок і призначення; s — сума; a — квартира/о/р.
+const BLOCK = new Set((new URLSearchParams(location.search).get('block') || '').toLowerCase().split(''));
+function applyBlockLocks(){
+  const account = document.getElementById('account-select');
+  const purpose = document.getElementById('purpose-type');
+  const amount = document.getElementById('amount');
+  const apartment = document.getElementById('apartment-select');
+  if (account) account.disabled = BLOCK.has('p');
+  if (purpose) purpose.disabled = BLOCK.has('p');
+  if (amount) amount.disabled = BLOCK.has('s');
+  if (apartment) apartment.disabled = BLOCK.has('a');
+}
 function payParams(){
   const kind = purposeKind(document.getElementById('purpose-type')?.value);
   const apartment = currentApartment();
+  // Беремо суму безпосередньо з поля, а не PAY.amt: при незаповненій квартирі платіж
+  // невалідний, але введена сума все одно має зберігатися в URL.
+  const amountInput = document.getElementById('amount');
+  const rawAmount = amountInput ? sanitizeAmount(amountInput.value) : '';
   return { a: CURRENT_ACCOUNT !== (ACCOUNTS[0] && ACCOUNTS[0].id) ? CURRENT_ACCOUNT : '',
-           sum: PAY.amt ? PAY.amt.payload : '',
+           sum: rawAmount ? rawAmount.replace(',', '.') : '',
            apt: apartment || (['or','apartment'].includes(kind) ? 'xxx' : ''),
-           p: CURRENT_PURPOSE_ID || DEFAULT_PURPOSE_ID || '' };
+           p: CURRENT_PURPOSE_ID || DEFAULT_PURPOSE_ID || '',
+           block: [...BLOCK].filter(ch => ['p','s','a'].includes(ch)).join('') };
 }
 function shareUrl(){
-  const { a, sum, apt, p } = payParams(), q = [];
+  const { a, sum, apt, p, block } = payParams(), q = [];
   if (a) q.push('a=' + encodeURIComponent(a));
-  if (sum) q.push('sum=' + sum);
+  if (sum) q.push('sum=' + encodeURIComponent(sum));
   if (apt) q.push('apt=' + encodeURIComponent(apt));
-  if (p) q.push('p=' + p);
+  if (p) q.push('p=' + encodeURIComponent(p));
+  if (block) q.push('block=' + encodeURIComponent(block));
   return location.href.split(/[?#]/)[0] + (q.length ? '?' + q.join('&') : '');
 }
 
@@ -1219,6 +1245,7 @@ function initPay(banks){
   } else if (apartmentFromUrl) {
     setPurposeTemplate($('purpose-type').value, apartmentFromUrl, false);
   }
+  applyBlockLocks();
   apply();
   (async () => {
     if (ADMIN.on && getKey()) {
