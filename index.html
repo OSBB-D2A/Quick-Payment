@@ -149,6 +149,14 @@ body.android .bank-links{grid-template-columns:repeat(5,1fr)}
 /* Fields */
 .field{margin-bottom:14px}
 .field label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.block-toggle{
+  display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;
+  width:19px;height:19px;margin-left:5px;padding:0;border:1px solid var(--border);
+  border-radius:6px;background:var(--field);color:#b45309;font-size:12px;
+  line-height:1;font-weight:800;cursor:pointer
+}
+.block-toggle.is-locked{color:#16803d;border-color:#78bd8b;background:rgba(34,197,94,.10)}
+.block-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .input{position:relative}
 .input input,.input textarea{
   width:100%;padding:13px 52px 13px 14px;border-radius:14px;border:1px solid var(--border);background:var(--field);
@@ -309,13 +317,13 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
   <section class="card account-picker">
     <h2>Рахунок для оплати</h2>
     <div class="field">
-      <label for="account-select">Оберіть рахунок</label>
+      <label for="account-select">Оберіть рахунок <button type="button" class="block-toggle" data-block="p" hidden aria-label="Заблокувати або дозволити зміну рахунку та призначення">✕</button></label>
       <div class="input">
         <select id="account-select" class="plain-select" aria-label="Рахунок для оплати"></select>
       </div>
     </div>
     <div class="field purpose-type-field">
-      <label for="purpose-type">Призначення платежу</label>
+      <label for="purpose-type">Призначення платежу <button type="button" class="block-toggle" data-block="p" hidden aria-label="Заблокувати або дозволити зміну рахунку та призначення">✕</button></label>
       <div class="input"><select id="purpose-type" class="plain-select" aria-label="Призначення платежу"></select></div>
     </div>
   </section>
@@ -328,10 +336,10 @@ dialog p#pw-text{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-hei
     <div class="params">
       <div class="p-grid">
         <div class="field apartment-field" id="apartment-field" hidden>
-          <label for="apartment-select">Квартира (о/р)</label>
+          <label for="apartment-select">Квартира (о/р) <button type="button" class="block-toggle" data-block="a" hidden aria-label="Заблокувати або дозволити зміну квартири">✕</button></label>
           <div class="input"><select id="apartment-select" class="plain-select" aria-label="Квартира або особовий рахунок"></select></div>
         </div>
-        <div class="field amount-field"><label for="amount">Сума</label>
+        <div class="field amount-field"><label for="amount">Сума <button type="button" class="block-toggle" data-block="s" hidden aria-label="Заблокувати або дозволити зміну суми">✕</button></label>
           <div class="input"><input id="amount" class="has-suffix" type="text" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="Вкажіть суму" required aria-required="true"><span class="suffix">₴</span></div></div>
         <input id="purpose" type="hidden" value="">
       </div>
@@ -611,6 +619,14 @@ function applyBlockLocks(){
   if (purpose) purpose.disabled = BLOCK.has('p');
   if (amount) amount.disabled = BLOCK.has('s');
   if (apartment) apartment.disabled = BLOCK.has('a');
+  document.querySelectorAll('.block-toggle').forEach(button => {
+    const locked = BLOCK.has(button.dataset.block);
+    button.textContent = locked ? '✓' : '✕';
+    button.classList.toggle('is-locked', locked);
+    button.title = locked ? 'Поле заблоковане — натисніть, щоб дозволити зміну' : 'Поле не заблоковане — натисніть, щоб заблокувати';
+    button.setAttribute('aria-pressed', locked ? 'true' : 'false');
+    button.hidden = !ADMIN.on;
+  });
 }
 function payParams(){
   const kind = purposeKind(document.getElementById('purpose-type')?.value);
@@ -1175,7 +1191,9 @@ function initPay(banks){
   $('installUpdateBtn').addEventListener('click',runUpdate);
 
   function renderAdmin(){
-    const box = $('admin-box'); box.hidden = !ADMIN.on; if (!ADMIN.on) return;
+    const box = $('admin-box'); box.hidden = !ADMIN.on;
+    applyBlockLocks();
+    if (!ADMIN.on) return;
     const pwSet = !!(CFG.data && CFG.data.password_set), hasKey = !!getKey();
     $('admin-info').textContent = hasKey
       ? 'Доступ адміністратора активний. Перевірка та встановлення оновлень доступні нижче.'
@@ -1213,7 +1231,15 @@ function initPay(banks){
     let r; try { r = await api('reset_request'); } catch(e){ return toast('Немає зв’язку зі save.php', 5000); }
     toast(r.ok ? `Лист надіслано на ${r.data.to}. Посилання діє ${r.data.ttl_minutes} хв.` : (r.data.error || 'Не вдалося надіслати лист'), r.ok ? 9000 : 6000);
   });
-  $('adminOff').addEventListener('click', () => { ADMIN.on = false; try { localStorage.removeItem(LS_ADMIN); } catch(e){} renderAdmin(); });
+  document.querySelectorAll('.block-toggle').forEach(button => button.addEventListener('click', () => {
+    if (!ADMIN.on) return;
+    const key = button.dataset.block;
+    if (BLOCK.has(key)) BLOCK.delete(key); else BLOCK.add(key);
+    applyBlockLocks();
+    syncUrl();
+    toast(BLOCK.has(key) ? 'Блокування увімкнено ✓' : 'Блокування вимкнено ✕', 2200);
+  }));
+  $('adminOff').addEventListener('click', () => { ADMIN.on = false; try { localStorage.removeItem(LS_ADMIN); } catch(e){} applyBlockLocks(); renderAdmin(); });
   window.addEventListener('osbb-account-change', () => {
     const ev = new Event('input', {bubbles:true});
     amountEl.dispatchEvent(ev);
