@@ -1171,7 +1171,7 @@ function initPay(banks){
   }
   async function runUpdate(){
     if(!getKey() || UPDATE.busy) return;
-    if(!confirm(`Оновити сторінку до v${UPDATE.latest}?\\n\\nНалаштування config.php збережуться.`)) return;
+    if(!confirm(`Оновити сторінку до v${UPDATE.latest}?\n\nНалаштування config.php збережуться.`)) return;
     UPDATE.busy=true; renderUpdateStatus();
     const btn=$('checkUpdateBtn'); if(btn) btn.disabled=true;
     try{
