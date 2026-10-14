@@ -3,7 +3,7 @@
   "_readme": "Шаблон конфігурації сторінки швидкої оплати ОСББ. Перший PHP-рядок не видаляти. Призначення платежів належать відповідним рахункам.",
   "password_hash": "",
   "admin_email": "osbb.dontsia@gmail.com",
-  "site_url": "https://dontsa2a.kyiv.ua/bank/",
+  "site_url": "https://example.com/bank/",
   "session_days": 30,
   "default_account": "main",
   "accounts": [
