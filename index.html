@@ -611,8 +611,15 @@ function apartmentFromPurpose(rawPurpose){
 }
 // Параметри блокування: p — рахунок і призначення; s — сума; a — квартира/о/р.
 const INITIAL_QUERY = new URLSearchParams(location.search);
-const INITIAL_COMPACT_PARTS = INITIAL_QUERY.has('h') ? location.hash.slice(1).split('#') : [];
-const BLOCK = new Set((INITIAL_QUERY.get('block') || INITIAL_COMPACT_PARTS[3] || '').toLowerCase().split(''));
+const INITIAL_HASH_PARTS = location.hash.slice(1).split('#').map(value => { try { return decodeURIComponent(value); } catch(e) { return value; } });
+const INITIAL_NEW_COMPACT = /^\?[^=&]+$/.test(location.search) && !INITIAL_QUERY.has('h');
+const INITIAL_COMPACT_PARTS = INITIAL_QUERY.has('h')
+  ? INITIAL_HASH_PARTS
+  : INITIAL_NEW_COMPACT ? INITIAL_HASH_PARTS : [];
+const INITIAL_COMBINED_TOKEN = INITIAL_NEW_COMPACT ? (INITIAL_COMPACT_PARTS[1] || '') : '';
+const INITIAL_COMBINED_MATCH = INITIAL_COMBINED_TOKEN.match(/^(\d+)([psa]*)$/i);
+const INITIAL_COMPACT_BLOCK = INITIAL_QUERY.has('h') ? INITIAL_COMPACT_PARTS[3] : (INITIAL_COMBINED_MATCH ? INITIAL_COMBINED_MATCH[2] : '');
+const BLOCK = new Set((INITIAL_QUERY.get('block') || INITIAL_COMPACT_BLOCK || '').toLowerCase().split('').filter(ch => ['p','s','a'].includes(ch)));
 function applyBlockLocks(){
   const account = document.getElementById('account-select');
   const purpose = document.getElementById('purpose-type');
@@ -662,15 +669,13 @@ function shareUrl(){
   if (block) q.push('block=' + encodeURIComponent(block));
   return location.href.split(/[?#]/)[0] + (q.length ? '?' + q.join('&') : '');
 }
-// Короткий диплінк: ?h=рахунок#сума#квартира#призначення#блокування.
-// Символи # після першого залишаються частиною fragment і не потребують %XX-кодування.
+// Короткий диплінк: ?сума#квартира#номерШаблону+блокування.
+// Номер шаблону визначає рахунок, тому окремий параметр рахунку не потрібен.
 function compactShareUrl(){
   const { sum, apt, p, block } = payParams();
-  const selectedAccount = ACCOUNTS.find(a => String(a.id) === String(CURRENT_ACCOUNT));
-  const accountId = selectedAccount ? String(selectedAccount.numeric_id ?? selectedAccount.id) : '';
-  const parts = [sum, apt, p, block];
-  return location.href.split(/[?#]/)[0] + '?h=' + encodeURIComponent(accountId)
-    + '#' + parts.map(value => encodeURIComponent(value || '')).join('#');
+  const purposeAndBlock = String(p || '') + String(block || '');
+  return location.href.split(/[?#]/)[0] + '?' + encodeURIComponent(sum || '')
+    + '#' + encodeURIComponent(apt || '') + '#' + encodeURIComponent(purposeAndBlock);
 }
 
 // ---------- Адміністрування та API ----------
@@ -1289,22 +1294,32 @@ function initPay(banks){
   // Параметри посилання: ?sum=1500&apt=123&p=номер_шаблону
   const qs = new URLSearchParams(location.search);
   initAdminFlag(qs);
-  const compactParts = qs.has('h') ? location.hash.slice(1).split('#') : [];
+  const hashParts = location.hash.slice(1).split('#').map(value => { try { return decodeURIComponent(value); } catch(e) { return value; } });
+  const isNewCompact = /^\?[^=&]+$/.test(location.search) && !qs.has('h');
+  const compactParts = qs.has('h') ? hashParts : (isNewCompact ? hashParts : []);
   const accountFromUrl = qs.get('a') || qs.get('h');
   // Підтримуємо старі текстові ID рахунків і числові ID для коротких посилань.
   const accountFromUrlMatch = accountFromUrl ? ACCOUNTS.find((a, i) =>
     String(a.id) === accountFromUrl || String(a.numeric_id ?? (i + 1)) === accountFromUrl
   ) : null;
   if (accountFromUrlMatch) setCurrentAccount(String(accountFromUrlMatch.id), true);
-  const sum = qs.get('sum') ?? qs.get('amount') ?? compactParts[0] ?? '';
-  const purposeParam = qs.get('p') ?? compactParts[2] ?? '';
-  const compactApartment = compactParts[1] ?? '';
-  const compactBlock = compactParts[3] ?? '';
+  const bareCompactAmount = isNewCompact ? (() => { try { return decodeURIComponent(location.search.slice(1)); } catch(e) { return location.search.slice(1); } })() : '';
+  const sum = qs.get('sum') ?? qs.get('amount') ?? (qs.has('h') ? compactParts[0] : bareCompactAmount) ?? '';
+  const compactApartment = qs.has('h') ? (compactParts[1] ?? '') : (isNewCompact ? (compactParts[0] ?? '') : '');
+  const combinedToken = isNewCompact ? (compactParts[1] ?? '') : '';
+  const combinedMatch = combinedToken.match(/^(\d+)([psa]*)$/i);
+  const purposeParam = qs.get('p') ?? (qs.has('h') ? (compactParts[2] ?? '') : (combinedMatch ? combinedMatch[1] : ''));
+  const compactBlock = qs.has('h') ? (compactParts[3] ?? '') : (combinedMatch ? combinedMatch[2] : '');
   const apartmentParam = qs.get('apt') ?? compactApartment;
   const apartmentFromUrl = apartmentParam.toLowerCase() === 'xxx' ? '' : apartmentParam;
   if (!qs.has('block') && compactBlock) {
     BLOCK.clear();
     compactBlock.toLowerCase().split('').filter(ch => ['p','s','a'].includes(ch)).forEach(ch => BLOCK.add(ch));
+  }
+  if (isNewCompact && purposeParam && /^\d+$/.test(purposeParam)) {
+    // ID шаблону глобально ідентифікує його рахунок — окремий account ID у URL не потрібен.
+    const owner = ACCOUNTS.find(account => accountPurposeList(account).some(item => String(item.id) === purposeParam));
+    if (owner && String(owner.id) !== String(CURRENT_ACCOUNT)) setCurrentAccount(String(owner.id), true);
   }
   if (purposeParam && /^\d+$/.test(purposeParam)) {
     const item = PURPOSE_ITEMS.find(x => String(x.id) === purposeParam);
