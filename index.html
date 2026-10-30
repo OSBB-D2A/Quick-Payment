@@ -611,7 +611,7 @@ function apartmentFromPurpose(rawPurpose){
 }
 // Параметри блокування: p — рахунок і призначення; s — сума; a — квартира/о/р.
 const INITIAL_QUERY = new URLSearchParams(location.search);
-const INITIAL_HASH_PARTS = location.hash.slice(1).split('#').map(value => { try { return decodeURIComponent(value); } catch(e) { return value; } });
+const INITIAL_HASH_PARTS = location.hash.slice(1).replace(/%23/gi, '#').split('#').map(value => { try { return decodeURIComponent(value); } catch(e) { return value; } });
 const INITIAL_NEW_COMPACT = /^\?[^=&]+$/.test(location.search) && !INITIAL_QUERY.has('h');
 const INITIAL_COMPACT_PARTS = INITIAL_QUERY.has('h')
   ? INITIAL_HASH_PARTS
@@ -1294,7 +1294,7 @@ function initPay(banks){
   // Параметри посилання: ?sum=1500&apt=123&p=номер_шаблону
   const qs = new URLSearchParams(location.search);
   initAdminFlag(qs);
-  const hashParts = location.hash.slice(1).split('#').map(value => { try { return decodeURIComponent(value); } catch(e) { return value; } });
+  const hashParts = location.hash.slice(1).replace(/%23/gi, '#').split('#').map(value => { try { return decodeURIComponent(value); } catch(e) { return value; } });
   const isNewCompact = /^\?[^=&]+$/.test(location.search) && !qs.has('h');
   const compactParts = qs.has('h') ? hashParts : (isNewCompact ? hashParts : []);
   const accountFromUrl = qs.get('a') || qs.get('h');
